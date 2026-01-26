@@ -151,6 +151,7 @@ resetBtn.addEventListener("click", async () => {{
 
 
 from lidar_livox_mid360 import LivoxMid360Sim
+from camera_d435i import D435iDepthSim
 
 def draw_pointcloud_markers(viewer, m, d, lidar_site_id, cloud_lidar,
                             max_markers=500, sphere_radius=0.01):
@@ -200,6 +201,86 @@ def draw_pointcloud_markers(viewer, m, d, lidar_site_id, cloud_lidar,
             g.objid = -1
             scn.ngeom += 1
 
+def draw_world_points(viewer,
+                      points_world: np.ndarray,
+                      colors_rgb: np.ndarray | None = None,
+                      max_markers: int = 800,
+                      sphere_radius: float = 0.01,
+                      alpha: float = 1.0):
+    """
+    Draw world-frame points as colored spheres in the MuJoCo native viewer.
+
+    Args:
+      viewer: mujoco.viewer viewer object (must have viewer.user_scn)
+      points_world: (N,3) float array in WORLD coordinates
+      colors_rgb: (N,3) uint8 or float array (0..255 or 0..1). Optional.
+      max_markers: max number of spheres to draw (subsample if more)
+      sphere_radius: sphere radius in meters
+      alpha: marker alpha (0..1)
+    """
+    if viewer is None or points_world is None:
+        return
+
+    pts = np.asarray(points_world)
+    if pts.ndim != 2 or pts.shape[1] != 3:
+        raise ValueError(f"points_world must be (N,3); got {pts.shape}")
+
+    n = pts.shape[0]
+    if n == 0:
+        with viewer.lock():
+            viewer.user_scn.ngeom = 0
+        return
+
+    # Subsample indices
+    if n > max_markers:
+        idx = np.linspace(0, n - 1, num=max_markers, dtype=np.int32)
+        pts = pts[idx]
+        if colors_rgb is not None:
+            colors = np.asarray(colors_rgb)[idx]
+        else:
+            colors = None
+    else:
+        colors = np.asarray(colors_rgb) if colors_rgb is not None else None
+
+    # Normalize colors to float [0,1]
+    if colors is not None:
+        if colors.ndim != 2 or colors.shape[1] != 3:
+            raise ValueError(f"colors_rgb must be (N,3); got {colors.shape}")
+        colors = colors.astype(np.float32)
+        if colors.max() > 1.0:
+            colors /= 255.0
+        colors = np.clip(colors, 0.0, 1.0)
+
+        # If colors length mismatches after subsample, drop colors
+        if colors.shape[0] != pts.shape[0]:
+            colors = None
+
+    with viewer.lock():
+        scn = viewer.user_scn
+        scn.ngeom = 0
+
+        M = min(pts.shape[0], scn.maxgeom)
+
+        # constant orientation
+        mat = np.eye(3, dtype=np.float64).reshape(-1)
+
+        for i in range(M):
+            rgba = np.array([1.0, 1.0, 1.0, float(alpha)], dtype=np.float64)
+            if colors is not None:
+                rgba[:3] = colors[i].astype(np.float64)
+
+            g = scn.geoms[i]
+            mujoco.mjv_initGeom(
+                g,
+                mujoco.mjtGeom.mjGEOM_SPHERE,
+                np.array([sphere_radius, 0, 0], dtype=np.float64),
+                pts[i].astype(np.float64),
+                mat,
+                rgba,
+            )
+            g.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN
+            g.objid = -1
+            scn.ngeom += 1
 
 def get_gravity_orientation(quaternion):
     qw = quaternion[0]
@@ -287,6 +368,24 @@ if __name__ == "__main__":
         range_max=30.0,              # indoor-ish cap; raise if needed
         range_noise_sigma=0.02,
         output_frame="site"
+    )
+
+    # Depth Camera
+    d435 = D435iDepthSim(
+        m, d,
+        camera_name="d435i_depth_cam",
+        mount_site_name="d435i_mount",
+        width=640, height=480,
+        fps=30.0,
+        z_near=0.28,
+        z_far=3.0,
+        depth_noise_sigma_m=0.002,
+        output_pointcloud=True,
+        output_frame="site",
+        mount_roll_deg=0.0,
+        mount_pitch_deg=-45.0,
+        mount_yaw_deg=0.0,
+        raycast_stride=8,
     )
 
     # ---------------------------
@@ -382,7 +481,17 @@ if __name__ == "__main__":
                 draw_pointcloud_markers(viewer, m, d, lidar.site_id, cloud,
                             max_markers=1000, sphere_radius=0.005)
 
-
+            frame = d435.step(dt=m.opt.timestep)
+            if frame is not None and frame.get("pointcloud") is not None:
+                draw_world_points(
+                    viewer,
+                    frame["pointcloud_world"],
+                    colors_rgb=frame["point_colors_rgb"],# uint8 Nx3
+                    max_markers=1000,
+                    sphere_radius=0.0075,
+                    alpha=1.0,
+                )
+            
             time_until_next_step = m.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
