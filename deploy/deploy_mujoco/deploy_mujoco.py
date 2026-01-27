@@ -153,134 +153,152 @@ resetBtn.addEventListener("click", async () => {{
 from lidar_livox_mid360 import LivoxMid360Sim
 from camera_d435i import D435iDepthSim
 
-def draw_pointcloud_markers(viewer, m, d, lidar_site_id, cloud_lidar,
-                            max_markers=500, sphere_radius=0.01):
+def draw_multiple_world_point_sets(
+    viewer,
+    m,
+    d,
+    *,
+    # LiDAR-style input (points in site frame)
+    lidar_site_id: int | None = None,
+    lidar_points_site: np.ndarray | None = None,
+    lidar_rgba=(0.0, 1.0, 0.0, 1.0),
+    lidar_radius: float = 0.0025,
+    lidar_max: int = 1000,
+
+    # Camera-style input (points already in world frame)
+    cam_points_world: np.ndarray | None = None,
+    cam_colors_rgb: np.ndarray | None = None,   # (N,3) uint8 or float
+    cam_radius: float = 0.005,
+    cam_alpha: float = 1.0,
+    cam_max: int = 1000,
+
+    # Global cap (must not exceed scn.maxgeom)
+    maxgeom_cap: int | None = None,
+):
     """
-    Draw cloud points as spheres in the viewer overlay (viewer.user_scn).
-    cloud_lidar: (N,3) points in LiDAR local frame.
-    """
-    if viewer is None or cloud_lidar is None:
-        return
+    Draw multiple point sets into viewer.user_scn in one pass (no overwriting).
 
-    # Subsample to keep it fast
-    n = cloud_lidar.shape[0]
-    if n == 0:
-        with viewer.lock():
-            viewer.user_scn.ngeom = 0
-        return
-
-    step = max(1, n // max_markers)
-    pts_l = cloud_lidar[::step][:max_markers]  # (M,3)
-
-    # LiDAR pose in world
-    p_w = d.site_xpos[lidar_site_id].copy()                    # (3,)
-    R_w_l = d.site_xmat[lidar_site_id].reshape(3, 3).copy()    # lidar->world
-
-    # Transform to world: p_world = p_w + R_w_l @ p_lidar
-    pts_w = p_w[None, :] + (pts_l @ R_w_l.T)                   # (M,3)
-
-    # Populate overlay geoms
-    with viewer.lock():
-        scn = viewer.user_scn
-        scn.ngeom = 0
-
-        # Safety: user_scn has a max capacity
-        M = min(pts_w.shape[0], scn.maxgeom)
-
-        for i in range(M):
-            g = scn.geoms[i]
-            mujoco.mjv_initGeom(
-                g,
-                mujoco.mjtGeom.mjGEOM_SPHERE,
-                np.array([sphere_radius, 0, 0], dtype=np.float64),
-                pts_w[i].astype(np.float64),
-                np.eye(3, dtype=np.float64).reshape(-1),
-                np.array([0.0, 1.0, 0.0, 1.0], dtype=np.float64),  # green
-            )
-            g.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN
-            g.objid = -1
-            scn.ngeom += 1
-
-def draw_world_points(viewer,
-                      points_world: np.ndarray,
-                      colors_rgb: np.ndarray | None = None,
-                      max_markers: int = 800,
-                      sphere_radius: float = 0.01,
-                      alpha: float = 1.0):
-    """
-    Draw world-frame points as colored spheres in the MuJoCo native viewer.
+    - LiDAR points are assumed to be in the LiDAR SITE frame and will be transformed to world.
+    - Camera points are assumed to be already in WORLD coordinates.
+    - Colors for camera points are per-point RGB; LiDAR is a constant RGBA.
 
     Args:
-      viewer: mujoco.viewer viewer object (must have viewer.user_scn)
-      points_world: (N,3) float array in WORLD coordinates
-      colors_rgb: (N,3) uint8 or float array (0..255 or 0..1). Optional.
-      max_markers: max number of spheres to draw (subsample if more)
-      sphere_radius: sphere radius in meters
-      alpha: marker alpha (0..1)
+      viewer: mujoco.viewer viewer object
+      m, d: model/data (needed for site transform)
+      lidar_site_id: MuJoCo site id for LiDAR
+      lidar_points_site: (N,3) points in site frame
+      cam_points_world: (N,3) points in world frame
+      cam_colors_rgb: (N,3) RGB colors (uint8 0..255 or float 0..1)
+      maxgeom_cap: optional hard limit on markers drawn (<= scn.maxgeom)
     """
-    if viewer is None or points_world is None:
+    if viewer is None:
         return
 
-    pts = np.asarray(points_world)
-    if pts.ndim != 2 or pts.shape[1] != 3:
-        raise ValueError(f"points_world must be (N,3); got {pts.shape}")
+    # Prepare LiDAR world points (subsampled)
+    lidar_pts_w = None
+    if lidar_site_id is not None and lidar_points_site is not None:
+        pts = np.asarray(lidar_points_site)
+        if pts.ndim == 2 and pts.shape[1] == 3 and pts.shape[0] > 0:
+            n = pts.shape[0]
+            step = max(1, n // int(lidar_max))
+            pts_s = pts[::step][:int(lidar_max)]
+            p_w = d.site_xpos[lidar_site_id].copy()
+            R_w_s = d.site_xmat[lidar_site_id].reshape(3, 3).copy()  # site->world
+            lidar_pts_w = p_w[None, :] + (pts_s @ R_w_s.T)
 
-    n = pts.shape[0]
-    if n == 0:
+    # Prepare camera points (subsampled) + colors (aligned)
+    cam_pts_w = None
+    cam_cols = None
+    if cam_points_world is not None:
+        pts = np.asarray(cam_points_world)
+        if pts.ndim == 2 and pts.shape[1] == 3 and pts.shape[0] > 0:
+            n = pts.shape[0]
+            if n > int(cam_max):
+                idx = np.linspace(0, n - 1, num=int(cam_max), dtype=np.int32)
+                cam_pts_w = pts[idx]
+                if cam_colors_rgb is not None:
+                    cam_cols = np.asarray(cam_colors_rgb)[idx]
+            else:
+                cam_pts_w = pts
+                if cam_colors_rgb is not None:
+                    cam_cols = np.asarray(cam_colors_rgb)
+
+            if cam_cols is not None:
+                if cam_cols.ndim != 2 or cam_cols.shape[1] != 3 or cam_cols.shape[0] != cam_pts_w.shape[0]:
+                    cam_cols = None
+                else:
+                    cam_cols = cam_cols.astype(np.float32)
+                    if cam_cols.max() > 1.0:
+                        cam_cols /= 255.0
+                    cam_cols = np.clip(cam_cols, 0.0, 1.0)
+
+    # If nothing to draw, clear overlay
+    
+    if lidar_pts_w is None and cam_pts_w is None:
         with viewer.lock():
             viewer.user_scn.ngeom = 0
         return
-
-    # Subsample indices
-    if n > max_markers:
-        idx = np.linspace(0, n - 1, num=max_markers, dtype=np.int32)
-        pts = pts[idx]
-        if colors_rgb is not None:
-            colors = np.asarray(colors_rgb)[idx]
-        else:
-            colors = None
-    else:
-        colors = np.asarray(colors_rgb) if colors_rgb is not None else None
-
-    # Normalize colors to float [0,1]
-    if colors is not None:
-        if colors.ndim != 2 or colors.shape[1] != 3:
-            raise ValueError(f"colors_rgb must be (N,3); got {colors.shape}")
-        colors = colors.astype(np.float32)
-        if colors.max() > 1.0:
-            colors /= 255.0
-        colors = np.clip(colors, 0.0, 1.0)
-
-        # If colors length mismatches after subsample, drop colors
-        if colors.shape[0] != pts.shape[0]:
-            colors = None
 
     with viewer.lock():
         scn = viewer.user_scn
         scn.ngeom = 0
 
-        M = min(pts.shape[0], scn.maxgeom)
+        # Determine capacity
+        capacity = scn.maxgeom
+        if maxgeom_cap is not None:
+            capacity = min(capacity, int(maxgeom_cap))
 
-        # constant orientation
         mat = np.eye(3, dtype=np.float64).reshape(-1)
 
-        for i in range(M):
-            rgba = np.array([1.0, 1.0, 1.0, float(alpha)], dtype=np.float64)
-            if colors is not None:
-                rgba[:3] = colors[i].astype(np.float64)
+        geom_i = 0
 
-            g = scn.geoms[i]
-            mujoco.mjv_initGeom(
-                g,
-                mujoco.mjtGeom.mjGEOM_SPHERE,
-                np.array([sphere_radius, 0, 0], dtype=np.float64),
-                pts[i].astype(np.float64),
-                mat,
-                rgba,
-            )
-            g.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN
-            g.objid = -1
-            scn.ngeom += 1
+        # Draw LiDAR first (constant color)
+        if lidar_pts_w is not None:
+            rgba = np.array(lidar_rgba, dtype=np.float64)
+            M = min(lidar_pts_w.shape[0], capacity - geom_i)
+            for i in range(M):
+                g = scn.geoms[geom_i]
+                mujoco.mjv_initGeom(
+                    g,
+                    mujoco.mjtGeom.mjGEOM_SPHERE,
+                    np.array([float(lidar_radius), 0, 0], dtype=np.float64),
+                    lidar_pts_w[i].astype(np.float64),
+                    mat,
+                    rgba,
+                )
+                g.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN
+                g.objid = -1
+                geom_i += 1
+                if geom_i >= capacity:
+                    scn.ngeom = geom_i
+                    return
+
+        # Draw camera points (per-point RGB)
+        if cam_pts_w is not None:
+            M = min(cam_pts_w.shape[0], capacity - geom_i)
+            for i in range(M):
+                rgba = np.array([1.0, 1.0, 1.0, float(cam_alpha)], dtype=np.float64)
+                if cam_cols is not None:
+                    rgba[:3] = cam_cols[i].astype(np.float64)
+
+                g = scn.geoms[geom_i]
+                mujoco.mjv_initGeom(
+                    g,
+                    mujoco.mjtGeom.mjGEOM_SPHERE,
+                    np.array([float(cam_radius), 0, 0], dtype=np.float64),
+                    cam_pts_w[i].astype(np.float64),
+                    mat,
+                    rgba,
+                )
+                g.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN
+                g.objid = -1
+                geom_i += 1
+                if geom_i >= capacity:
+                    scn.ngeom = geom_i
+                    return
+
+        scn.ngeom = geom_i
+
 
 def get_gravity_orientation(quaternion):
     qw = quaternion[0]
@@ -411,6 +429,10 @@ if __name__ == "__main__":
     # load policy
     policy = torch.jit.load(policy_path)
 
+    last_lidar_pts_site = None  # lidar output_frame="site"
+    last_cam_pts_world = None
+    last_cam_cols = None
+
     with mujoco.viewer.launch_passive(m, d) as viewer:
         # Close the viewer automatically after simulation_duration wall-seconds.
         start = time.time()
@@ -477,21 +499,28 @@ if __name__ == "__main__":
 
             cloud = lidar.step(d, dt=m.opt.timestep)
             if cloud is not None:
-                # "see" it: print summary + a few points
-                draw_pointcloud_markers(viewer, m, d, lidar.site_id, cloud,
-                            max_markers=1000, sphere_radius=0.005)
+                last_lidar_pts_site = cloud  # (N,3) in site frame
 
             frame = d435.step(dt=m.opt.timestep)
-            if frame is not None and frame.get("pointcloud") is not None:
-                draw_world_points(
-                    viewer,
-                    frame["pointcloud_world"],
-                    colors_rgb=frame["point_colors_rgb"],# uint8 Nx3
-                    max_markers=1000,
-                    sphere_radius=0.0075,
-                    alpha=1.0,
-                )
-            
+            if frame is not None and frame.get("pointcloud_world") is not None:
+                last_cam_pts_world = frame["pointcloud_world"]
+                last_cam_cols = frame.get("point_colors_rgb", None)
+
+
+            draw_multiple_world_point_sets(
+                viewer, m, d,
+                lidar_site_id=lidar.site_id,
+                lidar_points_site=last_lidar_pts_site if last_lidar_pts_site is not None else None,
+                lidar_radius=0.005,
+                lidar_max=1000,
+
+                cam_points_world=last_cam_pts_world if last_cam_pts_world is not None else None,
+                cam_colors_rgb=last_cam_cols if last_cam_cols is not None else None,
+                cam_radius=0.01,
+                cam_alpha=1.0,
+                cam_max=2400,
+            )
+
             time_until_next_step = m.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
