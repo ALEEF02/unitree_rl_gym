@@ -17,10 +17,283 @@ ROS2_ENABLED = False
 try:
     import rclpy
     from rclpy.node import Node
+    from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+    from rosgraph_msgs.msg import Clock
+    from sensor_msgs.msg import JointState, Imu
+    from nav_msgs.msg import Odometry
+    from geometry_msgs.msg import TransformStamped
+    from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
     ROS2_ENABLED = True
 except Exception:
     ROS2_ENABLED = False
 
+class MujocoROS2Bridge(Node):
+    """
+    Publishes:
+      /clock
+      /tf (odom -> base_link)
+      /tf_static (base_link -> livox_frame, base_link -> camera_link)
+      /joint_states
+      /odom
+      /imu
+    """
+
+    def __init__(
+        self,
+        m: mujoco.MjModel,
+        d: mujoco.MjData,
+        *,
+        base_body_name="pelvis",
+        livox_body_name="lidar_frame",
+        camera_body_name="depth_camera_frame",
+        odom_frame="odom",
+        base_frame="base_link",
+        livox_frame="livox_frame",
+        camera_frame="camera_link",
+    ):
+        super().__init__("mujoco_ros2_bridge")
+        self.m = m
+        self.d = d
+
+        # QoS: sensor-style (best effort, low latency)
+        qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=5,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+        )
+
+        # Publishers
+        self.pub_clock = self.create_publisher(Clock, "/clock", qos)
+        self.pub_joint = self.create_publisher(JointState, "/joint_states", qos)
+        self.pub_odom = self.create_publisher(Odometry, "/odom", qos)
+        self.pub_imu = self.create_publisher(Imu, "/imu", qos)
+
+        # TF broadcasters
+        self.tf_broadcaster = TransformBroadcaster(self)
+        self.tf_static_broadcaster = StaticTransformBroadcaster(self)
+
+        # Frames
+        self.odom_frame = odom_frame
+        self.base_frame = base_frame
+        self.livox_frame = livox_frame
+        self.camera_frame = camera_frame
+
+        # IDs from MJCF
+        self.base_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, base_body_name)
+        self.livox_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, livox_body_name)
+        self.camera_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, camera_body_name)
+
+        if self.base_body_id < 0:
+            raise ValueError(f"Body '{base_body_name}' not found in MJCF")
+        if self.livox_body_id < 0:
+            raise ValueError(f"Body '{livox_body_name}' not found in MJCF")
+        if self.camera_body_id < 0:
+            raise ValueError(f"Body '{camera_body_name}' not found in MJCF")
+
+        # Cache joint indexing for /joint_states
+        self._js_names, self._js_qposadr, self._js_dofadr = self._build_joint_state_index()
+
+        # Publish static TF once
+        self._publish_static_tf_once()
+
+        # sim clock accumulator
+        self.sim_time = 0.0
+
+    # --------------------------
+    # Utilities
+    # --------------------------
+    def _mat_to_quat_wxyz(self, R: np.ndarray) -> np.ndarray:
+        q = np.zeros(4, dtype=np.float64)
+        mujoco.mju_mat2Quat(q, R.reshape(-1).astype(np.float64))
+        return q  # wxyz
+
+    def _build_joint_state_index(self):
+        names = []
+        qposadr = []
+        dofadr = []
+        for jid in range(self.m.njnt):
+            jtype = int(self.m.jnt_type[jid])
+            if jtype == int(mujoco.mjtJoint.mjJNT_FREE):
+                continue  # base
+            # ignore ball joints etc for now (rare in this model)
+            # hinge/slide have 1 qpos, 1 dof
+            name = mujoco.mj_id2name(self.m, mujoco.mjtObj.mjOBJ_JOINT, jid)
+            if not name:
+                continue
+            names.append(name)
+            qposadr.append(int(self.m.jnt_qposadr[jid]))
+            dofadr.append(int(self.m.jnt_dofadr[jid]))
+        return names, np.asarray(qposadr, dtype=int), np.asarray(dofadr, dtype=int)
+
+    def _publish_static_tf_once(self):
+        """
+        Publish:
+          base_link -> livox_frame  (from MJCF relative body transform)
+          base_link -> camera_link (from MJCF relative body transform)
+        These bodies are rigidly attached (no joints), so static is correct.
+        """
+        stamp = self.get_clock().now().to_msg()
+
+        # We assume lidar_frame and depth_camera_frame are direct children of pelvis in your XML.
+        # In that case, their model-local pose (m.body_pos/body_quat) is already in base frame.
+        # If later you nest them deeper, we can compute parent chain, but your XML is direct.
+
+        static_msgs = []
+
+        # base -> lidar_frame
+        t1 = TransformStamped()
+        t1.header.stamp = stamp
+        t1.header.frame_id = self.base_frame
+        t1.child_frame_id = self.livox_frame
+
+        p = self.m.body_pos[self.livox_body_id]
+        q = self.m.body_quat[self.livox_body_id]  # wxyz in MuJoCo
+
+        t1.transform.translation.x = float(p[0])
+        t1.transform.translation.y = float(p[1])
+        t1.transform.translation.z = float(p[2])
+        t1.transform.rotation.w = float(q[0])
+        t1.transform.rotation.x = float(q[1])
+        t1.transform.rotation.y = float(q[2])
+        t1.transform.rotation.z = float(q[3])
+        static_msgs.append(t1)
+
+        # base -> camera_link
+        t2 = TransformStamped()
+        t2.header.stamp = stamp
+        t2.header.frame_id = self.base_frame
+        t2.child_frame_id = self.camera_frame
+
+        p = self.m.body_pos[self.camera_body_id]
+        q = self.m.body_quat[self.camera_body_id]  # wxyz
+
+        t2.transform.translation.x = float(p[0])
+        t2.transform.translation.y = float(p[1])
+        t2.transform.translation.z = float(p[2])
+        t2.transform.rotation.w = float(q[0])
+        t2.transform.rotation.x = float(q[1])
+        t2.transform.rotation.y = float(q[2])
+        t2.transform.rotation.z = float(q[3])
+        static_msgs.append(t2)
+
+        self.tf_static_broadcaster.sendTransform(static_msgs)
+
+    # --------------------------
+    # Publish per sim step
+    # --------------------------
+    def publish_step(self, dt: float):
+        """
+        Call once per MuJoCo step AFTER mj_step.
+        """
+        self.sim_time += float(dt)
+        stamp = self.get_clock().now().to_msg()
+
+        # /clock
+        clk = Clock()
+        # Use sim_time for /clock (RViz/SLAM expect this when use_sim_time is true)
+        sec = int(self.sim_time)
+        nsec = int((self.sim_time - sec) * 1e9)
+        clk.clock.sec = sec
+        clk.clock.nanosec = nsec
+        self.pub_clock.publish(clk)
+
+        # base pose in world/odom
+        p_w = self.d.xpos[self.base_body_id].copy()
+        R_w_base = self.d.xmat[self.base_body_id].reshape(3, 3).copy()
+        q_wxyz = self._mat_to_quat_wxyz(R_w_base)
+
+        # base spatial velocity (MuJoCo provides cvel: [ang; lin] in world frame)
+        # Note: cvel is 6D spatial velocity of COM frame; adequate for odom+imu.
+        v6 = self.d.cvel[self.base_body_id].copy()
+        w_w = v6[0:3]   # angular vel world
+        v_w = v6[3:6]   # linear vel world
+
+        # /tf: odom -> base_link (dynamic)
+        tfmsg = TransformStamped()
+        tfmsg.header.stamp = stamp
+        tfmsg.header.frame_id = self.odom_frame
+        tfmsg.child_frame_id = self.base_frame
+        tfmsg.transform.translation.x = float(p_w[0])
+        tfmsg.transform.translation.y = float(p_w[1])
+        tfmsg.transform.translation.z = float(p_w[2])
+        tfmsg.transform.rotation.w = float(q_wxyz[0])
+        tfmsg.transform.rotation.x = float(q_wxyz[1])
+        tfmsg.transform.rotation.y = float(q_wxyz[2])
+        tfmsg.transform.rotation.z = float(q_wxyz[3])
+        self.tf_broadcaster.sendTransform(tfmsg)
+
+        # /odom
+        odom = Odometry()
+        odom.header.stamp = stamp
+        odom.header.frame_id = self.odom_frame
+        odom.child_frame_id = self.base_frame
+        odom.pose.pose.position.x = float(p_w[0])
+        odom.pose.pose.position.y = float(p_w[1])
+        odom.pose.pose.position.z = float(p_w[2])
+        odom.pose.pose.orientation.w = float(q_wxyz[0])
+        odom.pose.pose.orientation.x = float(q_wxyz[1])
+        odom.pose.pose.orientation.y = float(q_wxyz[2])
+        odom.pose.pose.orientation.z = float(q_wxyz[3])
+        odom.twist.twist.linear.x = float(v_w[0])
+        odom.twist.twist.linear.y = float(v_w[1])
+        odom.twist.twist.linear.z = float(v_w[2])
+        odom.twist.twist.angular.x = float(w_w[0])
+        odom.twist.twist.angular.y = float(w_w[1])
+        odom.twist.twist.angular.z = float(w_w[2])
+        self.pub_odom.publish(odom)
+
+        # /joint_states
+        js = JointState()
+        js.header.stamp = stamp
+        js.name = list(self._js_names)
+        if len(self._js_qposadr) > 0:
+            js.position = self.d.qpos[self._js_qposadr].astype(np.float64).tolist()
+        if len(self._js_dofadr) > 0:
+            js.velocity = self.d.qvel[self._js_dofadr].astype(np.float64).tolist()
+        self.pub_joint.publish(js)
+
+        # /imu (in base_link frame)
+        imu = Imu()
+        imu.header.stamp = stamp
+        imu.header.frame_id = self.base_frame
+
+        # orientation (base in world) — many stacks accept it in base frame msg
+        imu.orientation.w = float(q_wxyz[0])
+        imu.orientation.x = float(q_wxyz[1])
+        imu.orientation.y = float(q_wxyz[2])
+        imu.orientation.z = float(q_wxyz[3])
+
+        # angular velocity: express in base frame
+        w_b = (R_w_base.T @ w_w.reshape(3, 1)).reshape(3)
+        imu.angular_velocity.x = float(w_b[0])
+        imu.angular_velocity.y = float(w_b[1])
+        imu.angular_velocity.z = float(w_b[2])
+
+        # linear acceleration: use body spatial acceleration if available
+        # d.cacc: [ang; lin] in world; IMU measures "proper acceleration" (minus gravity)
+        if hasattr(self.d, "cacc"):
+            a6 = self.d.cacc[self.base_body_id].copy()
+            a_w = a6[3:6]
+        else:
+            # fallback: finite difference of v_w (rough)
+            a_w = np.zeros(3, dtype=np.float64)
+
+        g_w = np.array(self.m.opt.gravity, dtype=np.float64)
+        proper_a_w = a_w - g_w
+        proper_a_b = (R_w_base.T @ proper_a_w.reshape(3, 1)).reshape(3)
+
+        imu.linear_acceleration.x = float(proper_a_b[0])
+        imu.linear_acceleration.y = float(proper_a_b[1])
+        imu.linear_acceleration.z = float(proper_a_b[2])
+
+        # unknown covariances
+        imu.orientation_covariance[0] = -1.0
+        imu.angular_velocity_covariance[0] = -1.0
+        imu.linear_acceleration_covariance[0] = -1.0
+
+        self.pub_imu.publish(imu)
 
 class LivoxPublisher(Node):
     def __init__(self, m: mujoco.MjModel, d: mujoco.MjData):
@@ -801,8 +1074,10 @@ if __name__ == "__main__":
     d435_node = None
     if ROS2_ENABLED:
         rclpy.init(args=None)
+        ros_bridge = MujocoROS2Bridge(m, d)
         livox_node = LivoxPublisher(m, d)
         d435_node = D435iPublisher(m, d)
+        print("[ROS2] Publishing /clock, /tf, /tf_static, /joint_states, /odom, /imu")
         print("[ROS2] Publishing /livox/points (sensor_msgs/PointCloud2)")
         print("[ROS2] Publishing D435i topics:")
         print("  /intel/D435i/color (sensor_msgs/Image rgb8)")
@@ -810,8 +1085,7 @@ if __name__ == "__main__":
         print("  /intel/D435i/aligned_depth_to_color (sensor_msgs/Image 16UC1, mm)")
         print("  + camera_info and TF frames from MJCF names")
     else:
-        print("[ROS2] rclpy not available; skipping /livox/points publishing")
-        print("[ROS2] rclpy not available; skipping D435i ROS publishing")
+        print("[ROS2] rclpy not available; ROS publishing")
 
 
     with mujoco.viewer.launch_passive(m, d) as viewer:
@@ -878,6 +1152,10 @@ if __name__ == "__main__":
 
             viewer.sync()
 
+            if ros_bridge is not None:
+                ros_bridge.publish_step(m.opt.timestep)
+                rclpy.spin_once(ros_bridge, timeout_sec=0.0)
+
             cloud = lidar.step(d, dt=m.opt.timestep)
             if cloud is not None:
                 last_lidar_pts_site = cloud  # (N,3) in site frame
@@ -939,7 +1217,9 @@ if __name__ == "__main__":
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
 
-    if livox_node is not None or d435_node is not None:
+    if ros_bridge is not None or livox_node is not None or d435_node is not None:
+        if ros_bridge is not None:
+            ros_bridge.destroy_node()
         if livox_node is not None:
             livox_node.destroy_node()
         if d435_node is not None:
