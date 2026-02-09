@@ -45,6 +45,7 @@ class D435iDepthSim:
         max_points: int = 200_000,            # safety cap for dense clouds
         output_frame: str = "camera",         # "camera" | "world"
         seed: int = 1,
+        rendered_depth_is_range: bool = True,
 
         # Mounting offset (like we did for LiDAR): sensor frame -> site frame
         mount_roll_deg: float = 0.0,
@@ -113,6 +114,7 @@ class D435iDepthSim:
             raise ValueError("output_frame must be 'camera', 'site', or 'world'")
 
         self.rng = np.random.default_rng(seed)
+        self.rendered_depth_is_range = rendered_depth_is_range
 
         # Mount rotation: SENSOR(camera) -> SITE
         self.R_site_cam = self._rotmat_zyx_deg(mount_yaw_deg, mount_pitch_deg, mount_roll_deg)
@@ -145,6 +147,14 @@ class D435iDepthSim:
         u = np.arange(self.width, dtype=np.float32)
         v = np.arange(self.height, dtype=np.float32)
         self._uu, self._vv = np.meshgrid(u, v)  # (H,W)
+
+        # Precompute per-pixel factor to convert range-along-ray -> z-depth
+        # If a pixel ray direction in optical frame is [x, y, 1] (unnormalized),
+        # unit ray z-component is 1 / sqrt(x^2 + y^2 + 1).
+        x = (self._uu - self.cx) / self.fx
+        y = (self._vv - self.cy) / self.fy
+        self._ray_unit_z = (1.0 / np.sqrt(x*x + y*y + 1.0)).astype(np.float32)  # (H,W)
+
 
     @staticmethod
     def _rot_x(a):
@@ -401,13 +411,23 @@ class D435iDepthSim:
         rgb_u8 = self._render_rgb_u8()
 
         # Match RealSense-like depth representation: uint16 in millimeters
-        depth_mm_u16 = np.clip(depth_m * 1000.0, 0, 65535).astype(np.uint16)
+        # Convert rendered depth to RealSense-style Z-depth if the renderer returns range depth
+        depth_z_m = depth_m
+        if self.rendered_depth_is_range:
+            # Only apply to valid pixels
+            valid = depth_m > 0.0
+            depth_z_m = depth_m.copy()
+            depth_z_m[valid] = depth_m[valid] * self._ray_unit_z[valid]
+
+        # RealSense-like output: uint16 millimeters of Z-depth
+        depth_mm_u16 = np.clip(depth_z_m * 1000.0, 0, 65535).astype(np.uint16)
 
         frame = {
             "t_wall": time.time(),
             "width": self.width,
             "height": self.height,
-            "depth_m": depth_m,
+            "depth_m": depth_z_m,
+            "depth_range_m": depth_m,
             "depth_mm_u16": depth_mm_u16,
             "rgb_u8": rgb_u8,
             "intrinsics": {
