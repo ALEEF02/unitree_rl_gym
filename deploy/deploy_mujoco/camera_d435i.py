@@ -390,6 +390,48 @@ class D435iDepthSim:
         R = self.d.cam_xmat[self.cam_id].reshape(3, 3).copy()  # camera->world
         return p, R
 
+    def _raycast_depth_image_mm_u16(self, rgb_u8: np.ndarray):
+        """
+        Build a RealSense-like Z-depth image (16UC1, millimeters) from raycast hits.
+        - Depth is Z in the RealSense optical frame (+Z forward).
+        - Unhit pixels are 0 (like RealSense invalid depth).
+        Also returns per-hit colors and the raycast pointcloud (optical).
+        """
+        pts_opt, pix = self._raycast_pointcloud_optical()  # pts in optical frame
+        H, W = self.height, self.width
+
+        depth_z = np.zeros((H, W), dtype=np.float32)
+
+        if pts_opt.shape[0] > 0:
+            z = pts_opt[:, 2].astype(np.float32)  # optical Z depth
+            # apply near/far clipping
+            valid = (z >= self.z_near) & (z <= self.z_far) & np.isfinite(z)
+            if np.any(valid):
+                vv = pix[valid, 0]
+                uu = pix[valid, 1]
+                z = z[valid]
+
+                # optional dropout + noise in meters
+                if self.dropout_prob > 0.0:
+                    keep = self.rng.random(z.shape[0]) >= self.dropout_prob
+                    vv, uu, z = vv[keep], uu[keep], z[keep]
+
+                if self.depth_noise_sigma_m > 0.0 and z.shape[0] > 0:
+                    z = z + self.rng.normal(0.0, self.depth_noise_sigma_m, size=z.shape[0]).astype(np.float32)
+                    z = np.clip(z, self.z_near, self.z_far)
+
+                depth_z[vv, uu] = z
+
+        depth_mm_u16 = np.clip(depth_z * 1000.0, 0, 65535).astype(np.uint16)
+
+        # colors aligned to points (same pix)
+        if pts_opt.shape[0] > 0:
+            cols = rgb_u8[pix[:, 0], pix[:, 1], :]
+        else:
+            cols = np.zeros((0, 3), dtype=np.uint8)
+
+        return depth_z, depth_mm_u16, pts_opt, pix, cols
+
 
     def step(self, dt: float) -> dict | None:
         """
@@ -412,15 +454,7 @@ class D435iDepthSim:
 
         # Match RealSense-like depth representation: uint16 in millimeters
         # Convert rendered depth to RealSense-style Z-depth if the renderer returns range depth
-        depth_z_m = depth_m
-        if self.rendered_depth_is_range:
-            # Only apply to valid pixels
-            valid = depth_m > 0.0
-            depth_z_m = depth_m.copy()
-            depth_z_m[valid] = depth_m[valid] * self._ray_unit_z[valid]
-
-        # RealSense-like output: uint16 millimeters of Z-depth
-        depth_mm_u16 = np.clip(depth_z_m * 1000.0, 0, 65535).astype(np.uint16)
+        depth_z_m, depth_mm_u16, pts_cam_optical, pix, colors = self._raycast_depth_image_mm_u16(rgb_u8)
 
         frame = {
             "t_wall": time.time(),
@@ -437,9 +471,9 @@ class D435iDepthSim:
         }
 
         if self.output_pointcloud:
-            pts_cam_optical, pix = self._raycast_pointcloud_optical()
+            #pts_cam_optical, pix = self._raycast_pointcloud_optical()
 
-            colors = rgb_u8[pix[:, 0], pix[:, 1], :] if pix.shape[0] else np.zeros((0,3), np.uint8)
+            #colors = rgb_u8[pix[:, 0], pix[:, 1], :] if pix.shape[0] else np.zeros((0,3), np.uint8)
 
             # Optical -> MuJoCo cam frame -> world
             pts_cam_mj = (self.R_mjcam_optical @ pts_cam_optical.T).T
