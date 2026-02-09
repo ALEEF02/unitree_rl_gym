@@ -432,35 +432,6 @@ class D435iDepthSim:
 
         return depth_z, depth_mm_u16, pts_opt, pix, cols
 
-    def _render_depth_z_m_fullres(self) -> np.ndarray:
-        """
-        Return FULL-RES Z-depth in meters (optical axis depth), suitable for ROS depth images.
-        This should not be affected by raycast_stride.
-        """
-        self._apply_mount_to_model_camera()
-        self.renderer.update_scene(self.d, camera=self.cam_name)
-
-        # Render depth
-        if self._renderer_has_depth_kw:
-            depth = np.asarray(self.renderer.render(depth=True), dtype=np.float32)
-        else:
-            self._set_depth_mode(True)
-            depth = np.asarray(self.renderer.render(), dtype=np.float32)
-
-        # Many builds return normalized depth buffer in [0,1]
-        # Convert if it looks like a buffer
-        if np.isfinite(depth).any():
-            dmin = float(np.nanmin(depth))
-            dmax = float(np.nanmax(depth))
-            if 0.0 <= dmin and dmax <= 1.0:
-                depth = self._depthbuf_to_meters(depth)
-
-        # Now `depth` should be metric distance along camera forward axis (Z-depth).
-        # Clip and mark invalid
-        depth = depth.astype(np.float32)
-        depth = self._apply_depth_model(depth)
-        return depth
-
 
     def step(self, dt: float) -> dict | None:
         """
@@ -481,13 +452,9 @@ class D435iDepthSim:
         depth_m = self._apply_depth_model(depth_m)
         rgb_u8 = self._render_rgb_u8()
 
-        # FULL-RES depth for ROS (not affected by stride)
-        depth_z_m = self._render_depth_z_m_fullres()
-        depth_mm_u16 = np.clip(depth_z_m * 1000.0, 0, 65535).astype(np.uint16)
-
         # Match RealSense-like depth representation: uint16 in millimeters
         # Convert rendered depth to RealSense-style Z-depth if the renderer returns range depth
-        #depth_z_m, depth_mm_u16, pts_cam_optical, pix, colors = self._raycast_depth_image_mm_u16(rgb_u8)
+        depth_z_m, depth_mm_u16, pts_cam_optical, pix, colors = self._raycast_depth_image_mm_u16(rgb_u8)
 
         frame = {
             "t_wall": time.time(),
@@ -504,9 +471,9 @@ class D435iDepthSim:
         }
 
         if self.output_pointcloud:
-            pts_cam_optical, pix = self._raycast_pointcloud_optical()
+            #pts_cam_optical, pix = self._raycast_pointcloud_optical()
 
-            colors = rgb_u8[pix[:, 0], pix[:, 1], :] if pix.shape[0] else np.zeros((0,3), np.uint8)
+            #colors = rgb_u8[pix[:, 0], pix[:, 1], :] if pix.shape[0] else np.zeros((0,3), np.uint8)
 
             # Optical -> MuJoCo cam frame -> world
             pts_cam_mj = (self.R_mjcam_optical @ pts_cam_optical.T).T

@@ -875,6 +875,12 @@ if __name__ == "__main__":
 
             viewer.sync()
 
+            import cProfile
+            import pstats
+            from pstats import SortKey
+            profiler = cProfile.Profile()
+            profiler.enable()
+
             cloud = lidar.step(d, dt=m.opt.timestep)
             if cloud is not None:
                 last_lidar_pts_site = cloud  # (N,3) in site frame
@@ -931,6 +937,11 @@ if __name__ == "__main__":
                     cam_alpha=1.0,
                     cam_max=2400,
                 )
+
+            profiler.disable()
+            stats = pstats.Stats(profiler)
+            stats.sort_stats(SortKey.CUMULATIVE) # Sort by cumulative time
+            stats.print_stats()
 
             time_until_next_step = m.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:
