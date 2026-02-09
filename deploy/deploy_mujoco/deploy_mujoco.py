@@ -127,76 +127,76 @@ class D435iPublisher(Node):
         # So optical = R * mjcam where R = diag(1,-1,-1)
         self.R_opt_mjcam = np.array([[1,0,0],[0,-1,0],[0,0,-1]], dtype=np.float64)
 
-        def publish_frames_and_images(self, frame_dict: dict):
-            stamp = self.get_clock().now().to_msg()
+    def publish_frames_and_images(self, frame_dict: dict):
+        stamp = self.get_clock().now().to_msg()
 
-            # ----- TF: world -> pelvis, lidar_frame, depth_camera_frame -----
-            self._publish_body_tf(self.frame_world, self.frame_pelvis, self.body_pelvis, stamp)
-            self._publish_body_tf(self.frame_world, self.frame_lidar, self.body_lidar_frame, stamp)
-            self._publish_body_tf(self.frame_world, self.frame_depth_cam_frame, self.body_depth_cam_frame, stamp)
+        # ----- TF: world -> pelvis, lidar_frame, depth_camera_frame -----
+        self._publish_body_tf(self.frame_world, self.frame_pelvis, self.body_pelvis, stamp)
+        self._publish_body_tf(self.frame_world, self.frame_lidar, self.body_lidar_frame, stamp)
+        self._publish_body_tf(self.frame_world, self.frame_depth_cam_frame, self.body_depth_cam_frame, stamp)
 
-            # ----- TF: world -> camera frame (from cam_xpos/xmat) -----
-            p = self.d.cam_xpos[self.cam_depth].copy()
-            R = self.d.cam_xmat[self.cam_depth].reshape(3, 3).copy()  # camera->world
-            self._publish_pose_tf(self.frame_world, self.frame_cam, p, R, stamp)
+        # ----- TF: world -> camera frame (from cam_xpos/xmat) -----
+        p = self.d.cam_xpos[self.cam_depth].copy()
+        R = self.d.cam_xmat[self.cam_depth].reshape(3, 3).copy()  # camera->world
+        self._publish_pose_tf(self.frame_world, self.frame_cam, p, R, stamp)
 
-            # ----- TF: camera -> optical (fixed) -----
-            # We publish world->optical using: R_w_opt = R_w_cam @ R_cam_opt
-            # where R_cam_opt = (R_opt_mjcam)^T because we defined R_opt_mjcam mapping mjcam->optical.
-            R_cam_opt = self.R_opt_mjcam.T
-            R_w_opt = R @ R_cam_opt
-            self._publish_pose_tf(self.frame_world, self.frame_cam_optical, p, R_w_opt, stamp)
+        # ----- TF: camera -> optical (fixed) -----
+        # We publish world->optical using: R_w_opt = R_w_cam @ R_cam_opt
+        # where R_cam_opt = (R_opt_mjcam)^T because we defined R_opt_mjcam mapping mjcam->optical.
+        R_cam_opt = self.R_opt_mjcam.T
+        R_w_opt = R @ R_cam_opt
+        self._publish_pose_tf(self.frame_world, self.frame_cam_optical, p, R_w_opt, stamp)
 
-            # ----- Images -----
-            rgb = frame_dict.get("rgb_u8", None)
-            depth_mm = frame_dict.get("depth_mm_u16", None)
+        # ----- Images -----
+        rgb = frame_dict.get("rgb_u8", None)
+        depth_mm = frame_dict.get("depth_mm_u16", None)
 
-            # Use optical frame_id for images (most ROS stacks expect *_optical_frame)
-            img_frame_id = self.frame_cam_optical
+        # Use optical frame_id for images (most ROS stacks expect *_optical_frame)
+        img_frame_id = self.frame_cam_optical
 
-            if rgb is not None:
-                self.pub_color.publish(ros_image_from_numpy(rgb, frame_id=img_frame_id, stamp_msg=stamp, encoding="rgb8"))
+        if rgb is not None:
+            self.pub_color.publish(ros_image_from_numpy(rgb, frame_id=img_frame_id, stamp_msg=stamp, encoding="rgb8"))
 
-            if depth_mm is not None:
-                depth_msg = ros_image_from_numpy(depth_mm, frame_id=img_frame_id, stamp_msg=stamp, encoding="16UC1")
-                self.pub_depth.publish(depth_msg)
-                # In your sim, depth is already from the same rendered viewpoint; treat as aligned
-                self.pub_aligned.publish(depth_msg)
+        if depth_mm is not None:
+            depth_msg = ros_image_from_numpy(depth_mm, frame_id=img_frame_id, stamp_msg=stamp, encoding="16UC1")
+            self.pub_depth.publish(depth_msg)
+            # In your sim, depth is already from the same rendered viewpoint; treat as aligned
+            self.pub_aligned.publish(depth_msg)
 
-            # ----- CameraInfo -----
-            intr = frame_dict.get("intrinsics", None)
-            if intr is not None:
-                info = camera_info_from_intrinsics(
-                    frame_dict["width"], frame_dict["height"],
-                    intr["fx"], intr["fy"], intr["cx"], intr["cy"],
-                    frame_id=img_frame_id, stamp_msg=stamp
-                )
-                self.pub_color_info.publish(info)
-                self.pub_depth_info.publish(info)
-                self.pub_aligned_info.publish(info)
+        # ----- CameraInfo -----
+        intr = frame_dict.get("intrinsics", None)
+        if intr is not None:
+            info = camera_info_from_intrinsics(
+                frame_dict["width"], frame_dict["height"],
+                intr["fx"], intr["fy"], intr["cx"], intr["cy"],
+                frame_id=img_frame_id, stamp_msg=stamp
+            )
+            self.pub_color_info.publish(info)
+            self.pub_depth_info.publish(info)
+            self.pub_aligned_info.publish(info)
 
-        def _publish_body_tf(self, parent: str, child: str, body_id: int, stamp):
-            p = self.d.xpos[body_id].copy()
-            R = self.d.xmat[body_id].reshape(3, 3).copy()  # body->world
-            self._publish_pose_tf(parent, child, p, R, stamp)
+    def _publish_body_tf(self, parent: str, child: str, body_id: int, stamp):
+        p = self.d.xpos[body_id].copy()
+        R = self.d.xmat[body_id].reshape(3, 3).copy()  # body->world
+        self._publish_pose_tf(parent, child, p, R, stamp)
 
-        def _publish_pose_tf(self, parent: str, child: str, p_w: np.ndarray, R_w_child: np.ndarray, stamp):
-            t = self._TransformStamped()
-            t.header.stamp = stamp
-            t.header.frame_id = parent
-            t.child_frame_id = child
+    def _publish_pose_tf(self, parent: str, child: str, p_w: np.ndarray, R_w_child: np.ndarray, stamp):
+        t = self._TransformStamped()
+        t.header.stamp = stamp
+        t.header.frame_id = parent
+        t.child_frame_id = child
 
-            t.transform.translation.x = float(p_w[0])
-            t.transform.translation.y = float(p_w[1])
-            t.transform.translation.z = float(p_w[2])
+        t.transform.translation.x = float(p_w[0])
+        t.transform.translation.y = float(p_w[1])
+        t.transform.translation.z = float(p_w[2])
 
-            q_xyzw = _mat_to_quat_xyzw(R_w_child)
-            t.transform.rotation.x = float(q_xyzw[0])
-            t.transform.rotation.y = float(q_xyzw[1])
-            t.transform.rotation.z = float(q_xyzw[2])
-            t.transform.rotation.w = float(q_xyzw[3])
+        q_xyzw = _mat_to_quat_xyzw(R_w_child)
+        t.transform.rotation.x = float(q_xyzw[0])
+        t.transform.rotation.y = float(q_xyzw[1])
+        t.transform.rotation.z = float(q_xyzw[2])
+        t.transform.rotation.w = float(q_xyzw[3])
 
-            self._tf_pub.sendTransform(t)
+        self._tf_pub.sendTransform(t)
 
 def pointcloud2_from_xyz(
     points_xyz: np.ndarray,
