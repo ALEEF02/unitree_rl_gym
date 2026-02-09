@@ -94,9 +94,7 @@ class D435iPublisher(Node):
         self.pub_depth = self.create_publisher(Image, "/intel/D435i/depth", qos)
         self.pub_aligned = self.create_publisher(Image, "/intel/D435i/aligned_depth_to_color", qos)
 
-        self.pub_color_info = self.create_publisher(CameraInfo, "/intel/D435i/color/camera_info", qos)
-        self.pub_depth_info = self.create_publisher(CameraInfo, "/intel/D435i/depth/camera_info", qos)
-        self.pub_aligned_info = self.create_publisher(CameraInfo, "/intel/D435i/aligned_depth_to_color/camera_info", qos)
+        self.pub_camera_info = self.create_publisher(CameraInfo, "/intel/D435i/camera_info", qos)
 
         # TF
         from tf2_ros import TransformBroadcaster
@@ -171,10 +169,7 @@ class D435iPublisher(Node):
                 intr["fx"], intr["fy"], intr["cx"], intr["cy"],
                 frame_id=img_frame_id, stamp_msg=stamp
             )
-            self.pub_color_info.publish(info)
-            self.pub_depth_info.publish(info)
-            self.pub_aligned_info.publish(info)
-
+            self.pub_camera_info.publish(info)
     def _publish_body_tf(self, parent: str, child: str, body_id: int, stamp):
         p = self.d.xpos[body_id].copy()
         R = self.d.xmat[body_id].reshape(3, 3).copy()  # body->world
