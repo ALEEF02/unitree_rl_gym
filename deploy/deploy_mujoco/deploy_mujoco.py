@@ -673,6 +673,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str, help="config file name in the config folder")
+    # Sensor visualization controls (MuJoCo overlay markers)
+    parser.add_argument(
+        "--show-sensors",
+        action="store_true",
+        help="Draw sensor outputs (LiDAR + D435 point clouds) in MuJoCo viewer overlay",
+    )
     args = parser.parse_args()
     config_file = args.config_file
     with open(f"{LEGGED_GYM_ROOT_DIR}/deploy/deploy_mujoco/configs/{config_file}", "r") as f:
@@ -758,7 +764,7 @@ if __name__ == "__main__":
         mount_roll_deg=0.0,
         mount_pitch_deg=-45.0,
         mount_yaw_deg=0.0,
-        raycast_stride=8,
+        raycast_stride=1,
     )
 
     # ---------------------------
@@ -911,20 +917,20 @@ if __name__ == "__main__":
                 # Keep ROS2 responsive
                 rclpy.spin_once(d435_node, timeout_sec=0.0)
 
+            if args.show_sensors:
+                draw_multiple_world_point_sets(
+                    viewer, m, d,
+                    lidar_site_id=lidar.site_id,
+                    lidar_points_site=last_lidar_pts_site if last_lidar_pts_site is not None else None,
+                    lidar_radius=0.005,
+                    lidar_max=1000,
 
-            draw_multiple_world_point_sets(
-                viewer, m, d,
-                lidar_site_id=lidar.site_id,
-                lidar_points_site=last_lidar_pts_site if last_lidar_pts_site is not None else None,
-                lidar_radius=0.005,
-                lidar_max=1000,
-
-                cam_points_world=last_cam_pts_world if last_cam_pts_world is not None else None,
-                cam_colors_rgb=last_cam_cols if last_cam_cols is not None else None,
-                cam_radius=0.01,
-                cam_alpha=1.0,
-                cam_max=2400,
-            )
+                    cam_points_world=last_cam_pts_world if last_cam_pts_world is not None else None,
+                    cam_colors_rgb=last_cam_cols if last_cam_cols is not None else None,
+                    cam_radius=0.01,
+                    cam_alpha=1.0,
+                    cam_max=2400,
+                )
 
             time_until_next_step = m.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:
