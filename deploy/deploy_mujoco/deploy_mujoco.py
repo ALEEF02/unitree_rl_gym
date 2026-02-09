@@ -39,42 +39,43 @@ class LivoxPublisher(Node):
         # IDs from MJCF
         self.body_lidar_frame = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "lidar_frame")
         self.site_livox = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SITE, "livox_mid360")
+        if self.body_lidar_frame < 0 or self.site_livox < 0:
+            raise ValueError("Could not find lidar_frame body or livox_mid360 site in MJCF")
 
+        # TF broadcaster
         from tf2_ros import TransformBroadcaster
         from geometry_msgs.msg import TransformStamped
         self._tf_pub = TransformBroadcaster(self)
         self._TransformStamped = TransformStamped
 
-    def publish_tf(self):
-        stamp = self.get_clock().now().to_msg()
-
+    def publish_tf(self, stamp_msg):
         # world -> lidar_frame (body)
-        if self.body_lidar_frame >= 0:
-            p = self.d.xpos[self.body_lidar_frame].copy()
-            R = self.d.xmat[self.body_lidar_frame].reshape(3,3).copy()
-            self._send_tf("world", "lidar_frame", p, R, stamp)
+        p = self.d.xpos[self.body_lidar_frame].copy()
+        R = self.d.xmat[self.body_lidar_frame].reshape(3, 3).copy()
+        self._send_tf("world", "lidar_frame", p, R, stamp_msg)
 
         # world -> livox_mid360 (site)
-        if self.site_livox >= 0:
-            p = self.d.site_xpos[self.site_livox].copy()
-            R = self.d.site_xmat[self.site_livox].reshape(3,3).copy()
-            self._send_tf("world", "livox_mid360", p, R, stamp)
+        p = self.d.site_xpos[self.site_livox].copy()
+        R = self.d.site_xmat[self.site_livox].reshape(3, 3).copy()
+        self._send_tf("world", "livox_mid360", p, R, stamp_msg)
 
-    def _send_tf(self, parent, child, p, R, stamp):
+    def _send_tf(self, parent, child, p_w, R_w_child, stamp_msg):
         t = self._TransformStamped()
-        t.header.stamp = stamp
+        t.header.stamp = stamp_msg
         t.header.frame_id = parent
         t.child_frame_id = child
-        t.transform.translation.x = float(p[0])
-        t.transform.translation.y = float(p[1])
-        t.transform.translation.z = float(p[2])
+
+        t.transform.translation.x = float(p_w[0])
+        t.transform.translation.y = float(p_w[1])
+        t.transform.translation.z = float(p_w[2])
 
         q_wxyz = np.zeros(4, dtype=np.float64)
-        mujoco.mju_mat2Quat(q_wxyz, R.reshape(-1))
+        mujoco.mju_mat2Quat(q_wxyz, R_w_child.reshape(-1))
         t.transform.rotation.w = float(q_wxyz[0])
         t.transform.rotation.x = float(q_wxyz[1])
         t.transform.rotation.y = float(q_wxyz[2])
         t.transform.rotation.z = float(q_wxyz[3])
+
         self._tf_pub.sendTransform(t)
 
 class D435iPublisher(Node):
@@ -170,6 +171,7 @@ class D435iPublisher(Node):
                 frame_id=img_frame_id, stamp_msg=stamp
             )
             self.pub_camera_info.publish(info)
+            
     def _publish_body_tf(self, parent: str, child: str, body_id: int, stamp):
         p = self.d.xpos[body_id].copy()
         R = self.d.xmat[body_id].reshape(3, 3).copy()  # body->world
@@ -871,17 +873,18 @@ if __name__ == "__main__":
             if cloud is not None:
                 last_lidar_pts_site = cloud  # (N,3) in site frame
                 if livox_node is not None:
-                    livox_node.publish_tf()
+                    stamp = livox_node.get_clock().now().to_msg()
+                    livox_node.publish_tf(stamp)
 
                     # Decide what frame_id should be:
                     # - If lidar.output_frame == "sensor": frame_id like "livox_frame"
                     # - If lidar.output_frame == "site":   frame_id like "livox_mid360" (site frame)
-                    frame_id = "livox_mid360"  # choose a stable frame name; match your TF later
+                    frame_id = "livox_mid360"
 
                     msg = pointcloud2_from_xyz(
                         cloud,  # (N,3)
                         frame_id=frame_id,
-                        stamp_msg=livox_node.get_clock().now().to_msg(),
+                        stamp_msg=stamp,
                         intensity=None,  # or np.ones((cloud.shape[0],), np.float32)
                     )
                     livox_node.pub.publish(msg)
