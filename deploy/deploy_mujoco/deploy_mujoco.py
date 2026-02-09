@@ -6,10 +6,93 @@ import numpy as np
 from legged_gym import LEGGED_GYM_ROOT_DIR
 import torch
 import yaml
+import struct
 
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+
+ROS2_ENABLED = False
+try:
+    import rclpy
+    from rclpy.node import Node
+    ROS2_ENABLED = True
+except Exception:
+    ROS2_ENABLED = False
+
+
+class LivoxPublisher(Node):
+    def __init__(self):
+        super().__init__("livox_mid360_sim")
+        # Use SensorDataQoS so RViz / typical pipelines behave well for live sensors
+        qos = rclpy.qos.QoSProfile(
+            depth=1,
+            reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+            durability=rclpy.qos.DurabilityPolicy.VOLATILE,
+        )
+        from sensor_msgs.msg import PointCloud2
+        self.pub = self.create_publisher(PointCloud2, "/livox/points", qos)
+
+def pointcloud2_from_xyz(
+    points_xyz: np.ndarray,
+    *,
+    frame_id: str,
+    stamp_msg,
+    intensity: np.ndarray | None = None,
+):
+    """
+    Build a sensor_msgs/PointCloud2 with fields:
+      - x, y, z (float32)
+      - intensity (float32) [optional; if not provided, uses 0.0]
+
+    points_xyz: (N,3) float array
+    intensity: (N,) optional
+    stamp_msg: builtin_interfaces/msg/Time (e.g., node.get_clock().now().to_msg())
+    """
+    from sensor_msgs.msg import PointCloud2, PointField
+    from std_msgs.msg import Header
+
+    pts = np.asarray(points_xyz, dtype=np.float32)
+    if pts.ndim != 2 or pts.shape[1] != 3:
+        raise ValueError(f"points_xyz must be (N,3), got {pts.shape}")
+
+    n = pts.shape[0]
+    if intensity is None:
+        inten = np.zeros((n,), dtype=np.float32)
+    else:
+        inten = np.asarray(intensity, dtype=np.float32).reshape(-1)
+        if inten.shape[0] != n:
+            raise ValueError(f"intensity must have length {n}, got {inten.shape[0]}")
+
+    # Pack as little-endian float32: x y z intensity
+    # point_step = 16 bytes
+    data = bytearray(n * 16)
+    off = 0
+    pack = struct.Struct("<ffff").pack
+    for i in range(n):
+        data[off:off+16] = pack(float(pts[i, 0]), float(pts[i, 1]), float(pts[i, 2]), float(inten[i]))
+        off += 16
+
+    msg = PointCloud2()
+    msg.header = Header()
+    msg.header.stamp = stamp_msg
+    msg.header.frame_id = frame_id
+
+    msg.height = 1
+    msg.width = n
+    msg.is_bigendian = False
+    msg.is_dense = True
+
+    msg.fields = [
+        PointField(name="x", offset=0,  datatype=PointField.FLOAT32, count=1),
+        PointField(name="y", offset=4,  datatype=PointField.FLOAT32, count=1),
+        PointField(name="z", offset=8,  datatype=PointField.FLOAT32, count=1),
+        PointField(name="intensity", offset=12, datatype=PointField.FLOAT32, count=1),
+    ]
+    msg.point_step = 16
+    msg.row_step = msg.point_step * n
+    msg.data = bytes(data)
+    return msg
 
 def start_cmd_web_ui(cmd_shared: np.ndarray, cmd_lock: threading.Lock, cmd_init: np.ndarray, 
                      rgb_jpeg_shared, rgb_lock,
@@ -470,6 +553,15 @@ if __name__ == "__main__":
     last_cam_pts_world = None
     last_cam_cols = None
 
+    livox_node = None
+    if ROS2_ENABLED:
+        rclpy.init(args=None)
+        livox_node = LivoxPublisher()
+        print("[ROS2] Publishing /livox/points (sensor_msgs/PointCloud2)")
+    else:
+        print("[ROS2] rclpy not available; skipping /livox/points publishing")
+
+
     with mujoco.viewer.launch_passive(m, d) as viewer:
         # Close the viewer automatically after simulation_duration wall-seconds.
         start = time.time()
@@ -537,6 +629,22 @@ if __name__ == "__main__":
             cloud = lidar.step(d, dt=m.opt.timestep)
             if cloud is not None:
                 last_lidar_pts_site = cloud  # (N,3) in site frame
+                if livox_node is not None:
+                    # Decide what frame_id should be:
+                    # - If lidar.output_frame == "sensor": frame_id like "livox_frame"
+                    # - If lidar.output_frame == "site":   frame_id like "livox_mid360" (site frame)
+                    frame_id = "livox_mid360"  # choose a stable frame name; match your TF later
+
+                    msg = pointcloud2_from_xyz(
+                        cloud,  # (N,3)
+                        frame_id=frame_id,
+                        stamp_msg=livox_node.get_clock().now().to_msg(),
+                        intensity=None,  # or np.ones((cloud.shape[0],), np.float32)
+                    )
+                    livox_node.pub.publish(msg)
+
+                    # Keep ROS2 responsive without blocking your sim
+                    rclpy.spin_once(livox_node, timeout_sec=0.0)
 
             frame = d435.step(dt=m.opt.timestep)
             if frame is not None and frame.get("pointcloud_world") is not None:
@@ -550,7 +658,6 @@ if __name__ == "__main__":
                             rgb_jpeg_shared["t"] = time.time()
                             rgb_jpeg_shared["h"], rgb_jpeg_shared["w"] = frame["rgb_u8"].shape[:2]
                     except Exception as e:
-                        # If Pillow isn't installed, you'll see this once; we can switch to PNG/PPM fallback
                         print(e)
                         pass
 
@@ -573,3 +680,7 @@ if __name__ == "__main__":
             time_until_next_step = m.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
+
+    if livox_node is not None:
+        livox_node.destroy_node()
+        rclpy.shutdown()
