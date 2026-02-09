@@ -22,8 +22,11 @@ except Exception:
 
 
 class LivoxPublisher(Node):
-    def __init__(self):
+    def __init__(self, m: mujoco.MjModel, d: mujoco.MjData):
         super().__init__("livox_mid360_sim")
+        self.m = m
+        self.d = d
+
         # Use SensorDataQoS so RViz / typical pipelines behave well for live sensors
         qos = rclpy.qos.QoSProfile(
             depth=1,
@@ -33,9 +36,52 @@ class LivoxPublisher(Node):
         from sensor_msgs.msg import PointCloud2
         self.pub = self.create_publisher(PointCloud2, "/livox/points", qos)
 
+        # IDs from MJCF
+        self.body_lidar_frame = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "lidar_frame")
+        self.site_livox = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SITE, "livox_mid360")
+
+        from tf2_ros import TransformBroadcaster
+        from geometry_msgs.msg import TransformStamped
+        self._tf_pub = TransformBroadcaster(self)
+        self._TransformStamped = TransformStamped
+
+    def publish_tf(self):
+        stamp = self.get_clock().now().to_msg()
+
+        # world -> lidar_frame (body)
+        if self.body_lidar_frame >= 0:
+            p = self.d.xpos[self.body_lidar_frame].copy()
+            R = self.d.xmat[self.body_lidar_frame].reshape(3,3).copy()
+            self._send_tf("world", "lidar_frame", p, R, stamp)
+
+        # world -> livox_mid360 (site)
+        if self.site_livox >= 0:
+            p = self.d.site_xpos[self.site_livox].copy()
+            R = self.d.site_xmat[self.site_livox].reshape(3,3).copy()
+            self._send_tf("world", "livox_mid360", p, R, stamp)
+
+    def _send_tf(self, parent, child, p, R, stamp):
+        t = self._TransformStamped()
+        t.header.stamp = stamp
+        t.header.frame_id = parent
+        t.child_frame_id = child
+        t.transform.translation.x = float(p[0])
+        t.transform.translation.y = float(p[1])
+        t.transform.translation.z = float(p[2])
+
+        q_wxyz = np.zeros(4, dtype=np.float64)
+        mujoco.mju_mat2Quat(q_wxyz, R.reshape(-1))
+        t.transform.rotation.w = float(q_wxyz[0])
+        t.transform.rotation.x = float(q_wxyz[1])
+        t.transform.rotation.y = float(q_wxyz[2])
+        t.transform.rotation.z = float(q_wxyz[3])
+        self._tf_pub.sendTransform(t)
+
 class D435iPublisher(Node):
-    def __init__(self):
+    def __init__(self, m: mujoco.MjModel, d: mujoco.MjData):
         super().__init__("d435i_sim")
+        self.m = m
+        self.d = d
 
         qos = rclpy.qos.QoSProfile(
             depth=1,
@@ -43,17 +89,114 @@ class D435iPublisher(Node):
             durability=rclpy.qos.DurabilityPolicy.VOLATILE,
         )
 
-        from sensor_msgs.msg import Image
-
+        from sensor_msgs.msg import Image, CameraInfo
         self.pub_color = self.create_publisher(Image, "/intel/D435i/color", qos)
         self.pub_depth = self.create_publisher(Image, "/intel/D435i/depth", qos)
         self.pub_aligned = self.create_publisher(Image, "/intel/D435i/aligned_depth_to_color", qos)
 
-        # Optional but recommended for Nav2 / SLAM:
-        from sensor_msgs.msg import CameraInfo
         self.pub_color_info = self.create_publisher(CameraInfo, "/intel/D435i/color/camera_info", qos)
         self.pub_depth_info = self.create_publisher(CameraInfo, "/intel/D435i/depth/camera_info", qos)
         self.pub_aligned_info = self.create_publisher(CameraInfo, "/intel/D435i/aligned_depth_to_color/camera_info", qos)
+
+        # TF
+        from tf2_ros import TransformBroadcaster
+        from geometry_msgs.msg import TransformStamped
+        self._tf_pub = TransformBroadcaster(self)
+        self._TransformStamped = TransformStamped
+
+        # IDs from your XML names
+        self.body_pelvis = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
+        self.body_lidar_frame = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "lidar_frame")
+        self.body_depth_cam_frame = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "depth_camera_frame")
+        self.cam_depth = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_CAMERA, "d435i_depth_cam")
+
+        if self.body_pelvis < 0 or self.body_lidar_frame < 0 or self.body_depth_cam_frame < 0 or self.cam_depth < 0:
+            raise ValueError("Could not find required bodies/camera from MJCF: pelvis/lidar_frame/depth_camera_frame/d435i_depth_cam")
+
+        # Frame names (reflect MJCF)
+        self.frame_world = "world"
+        self.frame_pelvis = "pelvis"
+        self.frame_lidar = "lidar_frame"
+        self.frame_depth_cam_frame = "depth_camera_frame"
+        self.frame_cam = "d435i_depth_cam"
+        self.frame_cam_optical = "d435i_depth_cam_optical"  # ROS optical convention
+
+        # Optical transform relative to MuJoCo camera frame:
+        # Optical: +X right, +Y down, +Z forward
+        # MuJoCo cam: +X right, +Y up, -Z forward
+        # So optical = R * mjcam where R = diag(1,-1,-1)
+        self.R_opt_mjcam = np.array([[1,0,0],[0,-1,0],[0,0,-1]], dtype=np.float64)
+
+        def publish_frames_and_images(self, frame_dict: dict):
+            stamp = self.get_clock().now().to_msg()
+
+            # ----- TF: world -> pelvis, lidar_frame, depth_camera_frame -----
+            self._publish_body_tf(self.frame_world, self.frame_pelvis, self.body_pelvis, stamp)
+            self._publish_body_tf(self.frame_world, self.frame_lidar, self.body_lidar_frame, stamp)
+            self._publish_body_tf(self.frame_world, self.frame_depth_cam_frame, self.body_depth_cam_frame, stamp)
+
+            # ----- TF: world -> camera frame (from cam_xpos/xmat) -----
+            p = self.d.cam_xpos[self.cam_depth].copy()
+            R = self.d.cam_xmat[self.cam_depth].reshape(3, 3).copy()  # camera->world
+            self._publish_pose_tf(self.frame_world, self.frame_cam, p, R, stamp)
+
+            # ----- TF: camera -> optical (fixed) -----
+            # We publish world->optical using: R_w_opt = R_w_cam @ R_cam_opt
+            # where R_cam_opt = (R_opt_mjcam)^T because we defined R_opt_mjcam mapping mjcam->optical.
+            R_cam_opt = self.R_opt_mjcam.T
+            R_w_opt = R @ R_cam_opt
+            self._publish_pose_tf(self.frame_world, self.frame_cam_optical, p, R_w_opt, stamp)
+
+            # ----- Images -----
+            rgb = frame_dict.get("rgb_u8", None)
+            depth_mm = frame_dict.get("depth_mm_u16", None)
+
+            # Use optical frame_id for images (most ROS stacks expect *_optical_frame)
+            img_frame_id = self.frame_cam_optical
+
+            if rgb is not None:
+                self.pub_color.publish(ros_image_from_numpy(rgb, frame_id=img_frame_id, stamp_msg=stamp, encoding="rgb8"))
+
+            if depth_mm is not None:
+                depth_msg = ros_image_from_numpy(depth_mm, frame_id=img_frame_id, stamp_msg=stamp, encoding="16UC1")
+                self.pub_depth.publish(depth_msg)
+                # In your sim, depth is already from the same rendered viewpoint; treat as aligned
+                self.pub_aligned.publish(depth_msg)
+
+            # ----- CameraInfo -----
+            intr = frame_dict.get("intrinsics", None)
+            if intr is not None:
+                info = camera_info_from_intrinsics(
+                    frame_dict["width"], frame_dict["height"],
+                    intr["fx"], intr["fy"], intr["cx"], intr["cy"],
+                    frame_id=img_frame_id, stamp_msg=stamp
+                )
+                self.pub_color_info.publish(info)
+                self.pub_depth_info.publish(info)
+                self.pub_aligned_info.publish(info)
+
+        def _publish_body_tf(self, parent: str, child: str, body_id: int, stamp):
+            p = self.d.xpos[body_id].copy()
+            R = self.d.xmat[body_id].reshape(3, 3).copy()  # body->world
+            self._publish_pose_tf(parent, child, p, R, stamp)
+
+        def _publish_pose_tf(self, parent: str, child: str, p_w: np.ndarray, R_w_child: np.ndarray, stamp):
+            t = self._TransformStamped()
+            t.header.stamp = stamp
+            t.header.frame_id = parent
+            t.child_frame_id = child
+
+            t.transform.translation.x = float(p_w[0])
+            t.transform.translation.y = float(p_w[1])
+            t.transform.translation.z = float(p_w[2])
+
+            q_xyzw = _mat_to_quat_xyzw(R_w_child)
+            t.transform.rotation.x = float(q_xyzw[0])
+            t.transform.rotation.y = float(q_xyzw[1])
+            t.transform.rotation.z = float(q_xyzw[2])
+            t.transform.rotation.w = float(q_xyzw[3])
+
+            self._tf_pub.sendTransform(t)
 
 def pointcloud2_from_xyz(
     points_xyz: np.ndarray,
@@ -151,6 +294,43 @@ def ros_image_from_numpy(arr: np.ndarray, *, frame_id: str, stamp_msg, encoding:
 
     return msg
 
+def camera_info_from_intrinsics(width: int, height: int, fx: float, fy: float, cx: float, cy: float, *, frame_id: str, stamp_msg):
+    from sensor_msgs.msg import CameraInfo
+    msg = CameraInfo()
+    msg.header.stamp = stamp_msg
+    msg.header.frame_id = frame_id
+    msg.width = int(width)
+    msg.height = int(height)
+
+    # K (3x3) row-major
+    msg.k = [
+        fx, 0.0, cx,
+        0.0, fy, cy,
+        0.0, 0.0, 1.0
+    ]
+
+    # P (3x4) row-major, assume no stereo baseline
+    msg.p = [
+        fx, 0.0, cx, 0.0,
+        0.0, fy, cy, 0.0,
+        0.0, 0.0, 1.0, 0.0
+    ]
+
+    # Identity rotation
+    msg.r = [1.0,0.0,0.0, 0.0,1.0,0.0, 0.0,0.0,1.0]
+
+    # Distortion unknown for sim; set plumb_bob with zeros (common)
+    msg.distortion_model = "plumb_bob"
+    msg.d = [0.0, 0.0, 0.0, 0.0, 0.0]
+    return msg
+
+def _mat_to_quat_xyzw(R: np.ndarray) -> np.ndarray:
+    """MuJoCo gives xmat (3x3) but we need ROS quaternion (x,y,z,w)."""
+    # MuJoCo mju_mat2Quat returns (w,x,y,z)
+    q_wxyz = np.zeros(4, dtype=np.float64)
+    mujoco.mju_mat2Quat(q_wxyz, R.reshape(-1))
+    # convert to ROS (x,y,z,w)
+    return np.array([q_wxyz[1], q_wxyz[2], q_wxyz[3], q_wxyz[0]], dtype=np.float64)
 
 def start_cmd_web_ui(cmd_shared: np.ndarray, cmd_lock: threading.Lock, cmd_init: np.ndarray, 
                      rgb_jpeg_shared, rgb_lock,
@@ -615,13 +795,14 @@ if __name__ == "__main__":
     d435_node = None
     if ROS2_ENABLED:
         rclpy.init(args=None)
-        livox_node = LivoxPublisher()
-        d435_node = D435iPublisher()
+        livox_node = LivoxPublisher(m, d)
+        d435_node = D435iPublisher(m, d)
         print("[ROS2] Publishing /livox/points (sensor_msgs/PointCloud2)")
         print("[ROS2] Publishing D435i topics:")
         print("  /intel/D435i/color (sensor_msgs/Image rgb8)")
         print("  /intel/D435i/depth (sensor_msgs/Image 16UC1, mm)")
         print("  /intel/D435i/aligned_depth_to_color (sensor_msgs/Image 16UC1, mm)")
+        print("  + camera_info and TF frames from MJCF names")
     else:
         print("[ROS2] rclpy not available; skipping /livox/points publishing")
         print("[ROS2] rclpy not available; skipping D435i ROS publishing")
@@ -695,6 +876,8 @@ if __name__ == "__main__":
             if cloud is not None:
                 last_lidar_pts_site = cloud  # (N,3) in site frame
                 if livox_node is not None:
+                    livox_node.publish_tf()
+
                     # Decide what frame_id should be:
                     # - If lidar.output_frame == "sensor": frame_id like "livox_frame"
                     # - If lidar.output_frame == "site":   frame_id like "livox_mid360" (site frame)
@@ -726,26 +909,7 @@ if __name__ == "__main__":
                         print(e)
                         pass
             if frame is not None and d435_node is not None:
-                # Choose a stable TF frame for these images:
-                # For RealSense convention you might eventually use: "D435i_color_optical_frame"
-                frame_id = "D435i_color_optical_frame"
-
-                stamp = d435_node.get_clock().now().to_msg()
-
-                # Color
-                if frame.get("rgb_u8") is not None:
-                    msg_color = ros_image_from_numpy(frame["rgb_u8"], frame_id=frame_id, stamp_msg=stamp, encoding="rgb8")
-                    d435_node.pub_color.publish(msg_color)
-
-                # Depth (Z16-style millimeters)
-                if frame.get("depth_mm_u16") is not None:
-                    msg_depth = ros_image_from_numpy(frame["depth_mm_u16"], frame_id=frame_id, stamp_msg=stamp, encoding="16UC1")
-                    d435_node.pub_depth.publish(msg_depth)
-
-                    # In your current sim, depth is already aligned to the rendered RGB view.
-                    # Publish the same image for aligned_depth_to_color.
-                    d435_node.pub_aligned.publish(msg_depth)
-
+                d435_node.publish_frames_and_images(frame)
                 # Keep ROS2 responsive
                 rclpy.spin_once(d435_node, timeout_sec=0.0)
 
@@ -768,10 +932,9 @@ if __name__ == "__main__":
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
 
-    if livox_node is not None:
-        livox_node.destroy_node()
-        rclpy.shutdown()
-
-    if d435_node is not None:
-        d435_node.destroy_node()
+    if livox_node is not None or d435_node is not None:
+        if livox_node is not None:
+            livox_node.destroy_node()
+        if d435_node is not None:
+            d435_node.destroy_node()
         rclpy.shutdown()

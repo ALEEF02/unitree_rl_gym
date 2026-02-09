@@ -51,13 +51,7 @@
       <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="head_link"/>
 
       <body name="lidar_frame" pos="0 0 0">
-	<!--
-        <replicate count="360" sep="-" euler="0 0 0.01745329252">
-          <site name="lidar_ray" pos="0.05 0 0.45" zaxis="1 0 0" size="0.003" rgba="0 1 0 0.3"/>
-        </replicate>
-	-->
         <site name="livox_mid360" pos="-0.004 0 0.43" size="0.01" rgba="1 0 0 1"/>
-
       </body>
 
       <body name="depth_camera_frame" pos="0.06 0 0.47">
