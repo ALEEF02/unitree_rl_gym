@@ -612,22 +612,18 @@ if __name__ == "__main__":
     last_cam_cols = None
 
     livox_node = None
-    if ROS2_ENABLED:
-        rclpy.init(args=None)
-        livox_node = LivoxPublisher()
-        print("[ROS2] Publishing /livox/points (sensor_msgs/PointCloud2)")
-    else:
-        print("[ROS2] rclpy not available; skipping /livox/points publishing")
-
     d435_node = None
     if ROS2_ENABLED:
         rclpy.init(args=None)
+        livox_node = LivoxPublisher()
         d435_node = D435iPublisher()
+        print("[ROS2] Publishing /livox/points (sensor_msgs/PointCloud2)")
         print("[ROS2] Publishing D435i topics:")
         print("  /intel/D435i/color (sensor_msgs/Image rgb8)")
         print("  /intel/D435i/depth (sensor_msgs/Image 16UC1, mm)")
         print("  /intel/D435i/aligned_depth_to_color (sensor_msgs/Image 16UC1, mm)")
     else:
+        print("[ROS2] rclpy not available; skipping /livox/points publishing")
         print("[ROS2] rclpy not available; skipping D435i ROS publishing")
 
 
