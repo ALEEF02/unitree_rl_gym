@@ -8,7 +8,7 @@ import torch
 import yaml
 import struct
 from std_msgs.msg import String
-    from pathlib import Path
+from pathlib import Path
 from warnings import warn
 
 import threading
