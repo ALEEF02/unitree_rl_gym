@@ -11,7 +11,8 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 
-def start_cmd_web_ui(cmd_shared: np.ndarray, cmd_lock: threading.Lock, cmd_init: np.ndarray,
+def start_cmd_web_ui(cmd_shared: np.ndarray, cmd_lock: threading.Lock, cmd_init: np.ndarray, 
+                     rgb_jpeg_shared, rgb_lock,
                      host="127.0.0.1", port=8000,
                      slider_min=-1.0, slider_max=1.0):
     html = f"""<!doctype html>
@@ -49,6 +50,10 @@ def start_cmd_web_ui(cmd_shared: np.ndarray, cmd_lock: threading.Lock, cmd_init:
   <button id="reset">Reset to cmd_init</button>
 
   <p>Current cmd: <code id="cmd"></code></p>
+
+  <h3>D435i RGB (live)</h3>
+  <img id="rgb" style="transform: rotate(90deg); max-width: 900px; width: 100%; border: 1px solid #ddd; border-radius: 8px; margin-top: 51px; margin-left: -53px;"
+       src="/d435/rgb.jpg" />
 
 <script>
 const vx = document.getElementById("vx");
@@ -94,6 +99,11 @@ resetBtn.addEventListener("click", async () => {{
   vx.value = c.vx; vy.value = c.vy; yaw.value = c.yaw;
   render();
 }})();
+
+const img = document.getElementById("rgb");
+setInterval(() => {{
+  img.src = "/d435/rgb.jpg?ts=" + Date.now();
+}}, 100); // ~20 FPS refresh (camera is 30fps; this is fine)
 </script>
 </body>
 </html>
@@ -115,6 +125,14 @@ resetBtn.addEventListener("click", async () => {{
                 with cmd_lock:
                     data = {"vx": float(cmd_shared[0]), "vy": float(cmd_shared[1]), "yaw": float(cmd_shared[2])}
                 self._send(200, "application/json", json.dumps(data).encode("utf-8"))
+                return
+            if self.path.startswith("/d435/rgb.jpg"):
+                with rgb_lock:
+                    jpg = rgb_jpeg_shared["jpeg"]
+                if not jpg:
+                    self._send(204, "text/plain", b"")  # no content yet
+                    return
+                self._send(200, "image/jpeg", jpg)
                 return
             self._send(404, "text/plain", b"not found")
 
@@ -149,6 +167,17 @@ resetBtn.addEventListener("click", async () => {{
     print(f"[cmd web ui] Open: http://{host}:{port}")
     httpd.serve_forever()
 
+def rgb_u8_to_jpeg_bytes(rgb_u8: np.ndarray, quality: int = 80) -> bytes:
+    """
+    Encode (H,W,3) uint8 RGB to JPEG bytes.
+    Requires Pillow: pip install pillow
+    """
+    from PIL import Image
+    import io
+    im = Image.fromarray(rgb_u8, mode="RGB")
+    buf = io.BytesIO()
+    im.save(buf, format="JPEG", quality=int(quality), optimize=True)
+    return buf.getvalue()
 
 from lidar_livox_mid360 import LivoxMid360Sim
 from camera_d435i import D435iDepthSim
@@ -355,9 +384,17 @@ if __name__ == "__main__":
         cmd_init = config["cmd_init"]
         cmd_shared = cmd_init.copy()
 
+        rgb_lock = threading.Lock()
+        rgb_jpeg_shared = {
+            "jpeg": b"",     # latest JPEG bytes
+            "t": 0.0,        # wall time of last update
+            "w": 0,
+            "h": 0,
+        }
+
         web_thread = threading.Thread(
             target=start_cmd_web_ui,
-            args=(cmd_shared, cmd_lock, cmd_init),
+            args=(cmd_shared, cmd_lock, cmd_init, rgb_jpeg_shared, rgb_lock),
             kwargs=dict(host="127.0.0.1", port=8000, slider_min=-10.0, slider_max=10.0),
             daemon=True,
         )
@@ -505,6 +542,18 @@ if __name__ == "__main__":
             if frame is not None and frame.get("pointcloud_world") is not None:
                 last_cam_pts_world = frame["pointcloud_world"]
                 last_cam_cols = frame.get("point_colors_rgb", None)
+                if frame.get("rgb_u8") is not None:
+                    try:
+                        jpg = rgb_u8_to_jpeg_bytes(frame["rgb_u8"], quality=80)
+                        with rgb_lock:
+                            rgb_jpeg_shared["jpeg"] = jpg
+                            rgb_jpeg_shared["t"] = time.time()
+                            rgb_jpeg_shared["h"], rgb_jpeg_shared["w"] = frame["rgb_u8"].shape[:2]
+                    except Exception as e:
+                        # If Pillow isn't installed, you'll see this once; we can switch to PNG/PPM fallback
+                        print(e)
+                        pass
+
 
 
             draw_multiple_world_point_sets(
