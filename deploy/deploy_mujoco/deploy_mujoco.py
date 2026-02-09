@@ -33,6 +33,28 @@ class LivoxPublisher(Node):
         from sensor_msgs.msg import PointCloud2
         self.pub = self.create_publisher(PointCloud2, "/livox/points", qos)
 
+class D435iPublisher(Node):
+    def __init__(self):
+        super().__init__("d435i_sim")
+
+        qos = rclpy.qos.QoSProfile(
+            depth=1,
+            reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+            durability=rclpy.qos.DurabilityPolicy.VOLATILE,
+        )
+
+        from sensor_msgs.msg import Image
+
+        self.pub_color = self.create_publisher(Image, "/intel/D435i/color", qos)
+        self.pub_depth = self.create_publisher(Image, "/intel/D435i/depth", qos)
+        self.pub_aligned = self.create_publisher(Image, "/intel/D435i/aligned_depth_to_color", qos)
+
+        # Optional but recommended for Nav2 / SLAM:
+        from sensor_msgs.msg import CameraInfo
+        self.pub_color_info = self.create_publisher(CameraInfo, "/intel/D435i/color/camera_info", qos)
+        self.pub_depth_info = self.create_publisher(CameraInfo, "/intel/D435i/depth/camera_info", qos)
+        self.pub_aligned_info = self.create_publisher(CameraInfo, "/intel/D435i/aligned_depth_to_color/camera_info", qos)
+
 def pointcloud2_from_xyz(
     points_xyz: np.ndarray,
     *,
@@ -93,6 +115,42 @@ def pointcloud2_from_xyz(
     msg.row_step = msg.point_step * n
     msg.data = bytes(data)
     return msg
+
+def ros_image_from_numpy(arr: np.ndarray, *, frame_id: str, stamp_msg, encoding: str):
+    """
+    Create sensor_msgs/Image from numpy array.
+    - rgb8: (H,W,3) uint8
+    - 16UC1: (H,W) uint16
+    """
+    from sensor_msgs.msg import Image
+
+    msg = Image()
+    msg.header.stamp = stamp_msg
+    msg.header.frame_id = frame_id
+
+    if encoding == "rgb8":
+        a = np.asarray(arr)
+        assert a.dtype == np.uint8 and a.ndim == 3 and a.shape[2] == 3, f"rgb8 expects (H,W,3) uint8, got {a.shape} {a.dtype}"
+        msg.height, msg.width = a.shape[0], a.shape[1]
+        msg.encoding = "rgb8"
+        msg.is_bigendian = False
+        msg.step = msg.width * 3
+        msg.data = a.tobytes()
+
+    elif encoding == "16UC1":
+        a = np.asarray(arr)
+        assert a.dtype == np.uint16 and a.ndim == 2, f"16UC1 expects (H,W) uint16, got {a.shape} {a.dtype}"
+        msg.height, msg.width = a.shape[0], a.shape[1]
+        msg.encoding = "16UC1"
+        msg.is_bigendian = False
+        msg.step = msg.width * 2
+        msg.data = a.tobytes()
+
+    else:
+        raise ValueError(f"Unsupported encoding: {encoding}")
+
+    return msg
+
 
 def start_cmd_web_ui(cmd_shared: np.ndarray, cmd_lock: threading.Lock, cmd_init: np.ndarray, 
                      rgb_jpeg_shared, rgb_lock,
@@ -561,6 +619,17 @@ if __name__ == "__main__":
     else:
         print("[ROS2] rclpy not available; skipping /livox/points publishing")
 
+    d435_node = None
+    if ROS2_ENABLED:
+        rclpy.init(args=None)
+        d435_node = D435iPublisher()
+        print("[ROS2] Publishing D435i topics:")
+        print("  /intel/D435i/color (sensor_msgs/Image rgb8)")
+        print("  /intel/D435i/depth (sensor_msgs/Image 16UC1, mm)")
+        print("  /intel/D435i/aligned_depth_to_color (sensor_msgs/Image 16UC1, mm)")
+    else:
+        print("[ROS2] rclpy not available; skipping D435i ROS publishing")
+
 
     with mujoco.viewer.launch_passive(m, d) as viewer:
         # Close the viewer automatically after simulation_duration wall-seconds.
@@ -660,7 +729,29 @@ if __name__ == "__main__":
                     except Exception as e:
                         print(e)
                         pass
+            if frame is not None and d435_node is not None:
+                # Choose a stable TF frame for these images:
+                # For RealSense convention you might eventually use: "D435i_color_optical_frame"
+                frame_id = "D435i_color_optical_frame"
 
+                stamp = d435_node.get_clock().now().to_msg()
+
+                # Color
+                if frame.get("rgb_u8") is not None:
+                    msg_color = ros_image_from_numpy(frame["rgb_u8"], frame_id=frame_id, stamp_msg=stamp, encoding="rgb8")
+                    d435_node.pub_color.publish(msg_color)
+
+                # Depth (Z16-style millimeters)
+                if frame.get("depth_mm_u16") is not None:
+                    msg_depth = ros_image_from_numpy(frame["depth_mm_u16"], frame_id=frame_id, stamp_msg=stamp, encoding="16UC1")
+                    d435_node.pub_depth.publish(msg_depth)
+
+                    # In your current sim, depth is already aligned to the rendered RGB view.
+                    # Publish the same image for aligned_depth_to_color.
+                    d435_node.pub_aligned.publish(msg_depth)
+
+                # Keep ROS2 responsive
+                rclpy.spin_once(d435_node, timeout_sec=0.0)
 
 
             draw_multiple_world_point_sets(
@@ -683,4 +774,8 @@ if __name__ == "__main__":
 
     if livox_node is not None:
         livox_node.destroy_node()
+        rclpy.shutdown()
+
+    if d435_node is not None:
+        d435_node.destroy_node()
         rclpy.shutdown()
