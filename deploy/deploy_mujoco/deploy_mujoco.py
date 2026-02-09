@@ -7,6 +7,8 @@ from legged_gym import LEGGED_GYM_ROOT_DIR
 import torch
 import yaml
 import struct
+from std_msgs.msg import String
+    from pathlib import Path
 from warnings import warn
 
 import threading
@@ -74,6 +76,9 @@ class MujocoROS2Bridge(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
 
+        # Description
+        self.pub_robot_description = self.create_publisher(String, "/robot_description", 1)
+
         # Frames
         self.odom_frame = odom_frame
         self.base_frame = base_frame
@@ -95,8 +100,9 @@ class MujocoROS2Bridge(Node):
         # Cache joint indexing for /joint_states
         self._js_names, self._js_qposadr, self._js_dofadr = self._build_joint_state_index()
 
-        # Publish static TF once
+        # Publish static TF & Description once
         self._publish_static_tf_once()
+        self._publish_robot_description_once()
 
         # sim clock accumulator
         self.sim_time = 0.0
@@ -179,6 +185,27 @@ class MujocoROS2Bridge(Node):
         static_msgs.append(t2)
 
         self.tf_static_broadcaster.sendTransform(static_msgs)
+
+    def _publish_robot_description_once(self):
+        """
+        Publish a minimal URDF so RViz can display a RobotModel.
+        This includes:
+        base_link
+        livox_frame
+        camera_link
+        and fixed joints from base_link to sensors.
+
+        Replace this later with the real G1 URDF for full visualization.
+        """
+        p = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_29dof_rev_1_0.urdf")).expanduser().resolve()
+        if not p.exists():
+            self.get_logger().error(f"/robot_description URDF not found: {p}")
+            return
+
+        urdf = p.read_text(encoding="utf-8")
+        msg = String()
+        msg.data = urdf
+        self.pub_robot_description.publish(msg)
 
     # --------------------------
     # Publish per sim step
