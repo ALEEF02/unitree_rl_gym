@@ -50,7 +50,7 @@ class MujocoROS2Bridge(Node):
         livox_body_name="lidar_frame",
         camera_body_name="depth_camera_frame",
         odom_frame="odom",
-        base_frame="base_link",
+        base_frame="pelvis",
         livox_frame="livox_frame",
         camera_frame="camera_link",
     ):
@@ -197,7 +197,7 @@ class MujocoROS2Bridge(Node):
 
         Replace this later with the real G1 URDF for full visualization.
         """
-        p = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_29dof_rev_1_0.urdf")).expanduser().resolve()
+        p = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_29dof.urdf")).expanduser().resolve()
         if not p.exists():
             self.get_logger().error(f"/robot_description URDF not found: {p}")
             return
