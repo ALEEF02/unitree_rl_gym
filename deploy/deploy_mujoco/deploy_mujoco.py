@@ -9,6 +9,7 @@ import yaml
 import struct
 from pathlib import Path
 from warnings import warn
+import re
 
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -60,7 +61,8 @@ class MujocoROS2Bridge(Node):
         super().__init__("mujoco_ros2_bridge")
         self.m = m
         self.d = d
-
+        self.p = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_12dof.urdf")).expanduser().resolve()
+        
         # QoS: sensor-style (best effort, low latency)
         qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -118,7 +120,7 @@ class MujocoROS2Bridge(Node):
                 mj_joints.add(name)
 
         # URDF movable joints (includes upper body joints in 29dof URDF)
-        urdf_movable = _parse_urdf_movable_joint_names(self.urdf_path)
+        urdf_movable = self._parse_urdf_movable_joint_names(str(self.p))
 
         # Joints that exist in URDF but not in MuJoCo -> placeholders
         self.placeholder_joint_names = [jn for jn in urdf_movable if jn not in mj_joints]
@@ -148,7 +150,7 @@ class MujocoROS2Bridge(Node):
             if js_msg.effort is not None:
                 js_msg.effort.append(0.0)
 
-    def _parse_urdf_movable_joint_names(urdf_path: str) -> list[str]:
+    def _parse_urdf_movable_joint_names(self, urdf_path: str) -> list[str]:
         """
         Return URDF joint names that are not 'fixed'.
         """
@@ -254,12 +256,11 @@ class MujocoROS2Bridge(Node):
 
         Replace this later with the real G1 URDF for full visualization.
         """
-        p = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_12dof.urdf")).expanduser().resolve()
-        if not p.exists():
-            self.get_logger().error(f"/robot_description URDF not found: {p}")
+        if not self.p.exists():
+            self.get_logger().error(f"/robot_description URDF not found: {self.p}")
             return
 
-        urdf = p.read_text(encoding="utf-8")
+        urdf = self.p.read_text(encoding="utf-8")
         msg = String()
         msg.data = urdf
         self.pub_robot_description.publish(msg)
