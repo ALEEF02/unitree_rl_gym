@@ -193,7 +193,7 @@ class MujocoROS2Bridge(Node):
         t.header.frame_id = "odom"
         t.child_frame_id = "world"
         t.transform.rotation.w = 1.0
-        static_broadcaster.sendTransform([t])
+        self.tf_static_broadcaster.sendTransform([t])
 
 
     def _publish_robot_description_once(self):
@@ -207,7 +207,7 @@ class MujocoROS2Bridge(Node):
 
         Replace this later with the real G1 URDF for full visualization.
         """
-        p = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_29dof.urdf")).expanduser().resolve()
+        p = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_12dof.urdf")).expanduser().resolve()
         if not p.exists():
             self.get_logger().error(f"/robot_description URDF not found: {p}")
             return
