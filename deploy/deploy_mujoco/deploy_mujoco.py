@@ -7,7 +7,6 @@ from legged_gym import LEGGED_GYM_ROOT_DIR
 import torch
 import yaml
 import struct
-from std_msgs.msg import String
 from pathlib import Path
 from warnings import warn
 
@@ -20,6 +19,7 @@ try:
     import rclpy
     from rclpy.node import Node
     from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+    from std_msgs.msg import String
 
     from rosgraph_msgs.msg import Clock
     from sensor_msgs.msg import JointState, Imu
@@ -29,6 +29,9 @@ try:
     ROS2_ENABLED = True
 except Exception:
     ROS2_ENABLED = False
+    class Node:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("Node is not installed.")
 
 class MujocoROS2Bridge(Node):
     """
@@ -50,7 +53,7 @@ class MujocoROS2Bridge(Node):
         livox_body_name="lidar_frame",
         camera_body_name="depth_camera_frame",
         odom_frame="odom",
-        base_frame="pelvis",
+        base_frame="base_link",
         livox_frame="livox_frame",
         camera_frame="camera_link",
     ):
@@ -185,6 +188,13 @@ class MujocoROS2Bridge(Node):
         static_msgs.append(t2)
 
         self.tf_static_broadcaster.sendTransform(static_msgs)
+
+        t = TransformStamped()
+        t.header.frame_id = "odom"
+        t.child_frame_id = "world"
+        t.transform.rotation.w = 1.0
+        static_broadcaster.sendTransform([t])
+
 
     def _publish_robot_description_once(self):
         """
@@ -1112,6 +1122,7 @@ if __name__ == "__main__":
         print("  /intel/D435i/aligned_depth_to_color (sensor_msgs/Image 16UC1, mm)")
         print("  + camera_info and TF frames from MJCF names")
     else:
+        ros_bridge = None
         print("[ROS2] rclpy not available; ROS publishing")
 
 
