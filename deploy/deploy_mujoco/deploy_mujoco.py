@@ -110,6 +110,53 @@ class MujocoROS2Bridge(Node):
         # sim clock accumulator
         self.sim_time = 0.0
 
+        # MuJoCo joint names present in this MJCF
+        mj_joints = set()
+        for jid in range(self.m.njnt):
+            name = mujoco.mj_id2name(self.m, mujoco.mjtObj.mjOBJ_JOINT, jid)
+            if name:
+                mj_joints.add(name)
+
+        # URDF movable joints (includes upper body joints in 29dof URDF)
+        urdf_movable = _parse_urdf_movable_joint_names(self.urdf_path)
+
+        # Joints that exist in URDF but not in MuJoCo -> placeholders
+        self.placeholder_joint_names = [jn for jn in urdf_movable if jn not in mj_joints]
+
+        # You can also optionally exclude the floating base joint if it exists in URDF
+        # (some URDFs do not include it as a "joint" in the same way)
+        self.placeholder_joint_names = [
+            jn for jn in self.placeholder_joint_names
+            if jn != "floating_base_joint"
+        ]
+        print(f"[upper-body placeholder] {len(self.placeholder_joint_names)} placeholder joints")
+
+    def _augment_joint_state(self, js_msg):
+        """
+        Mutates a sensor_msgs/JointState: appends placeholder joints at 0 position/velocity.
+        Only adds joints that aren't already present in js_msg.name.
+        """
+        existing = set(js_msg.name)
+        for jn in self.placeholder_joint_names:
+            if jn in existing:
+                continue
+            js_msg.name.append(jn)
+            js_msg.position.append(0.0)
+            # keep arrays aligned if you publish velocity/effort
+            if js_msg.velocity is not None:
+                js_msg.velocity.append(0.0)
+            if js_msg.effort is not None:
+                js_msg.effort.append(0.0)
+
+    def _parse_urdf_movable_joint_names(urdf_path: str) -> list[str]:
+        """
+        Return URDF joint names that are not 'fixed'.
+        """
+        txt = Path(urdf_path).read_text(encoding="utf-8")
+        # <joint name="..." type="...">
+        matches = re.findall(r'<joint\s+name="([^"]+)"\s+type="([^"]+)"', txt)
+        return [name for (name, jtype) in matches if jtype.strip().lower() != "fixed"]
+
     # --------------------------
     # Utilities
     # --------------------------
@@ -289,6 +336,7 @@ class MujocoROS2Bridge(Node):
             js.position = self.d.qpos[self._js_qposadr].astype(np.float64).tolist()
         if len(self._js_dofadr) > 0:
             js.velocity = self.d.qvel[self._js_dofadr].astype(np.float64).tolist()
+        self._augment_joint_state(js)
         self.pub_joint.publish(js)
 
         # /imu (in base_link frame)
