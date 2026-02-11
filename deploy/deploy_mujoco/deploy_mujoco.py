@@ -62,6 +62,7 @@ class MujocoROS2Bridge(Node):
         self.m = m
         self.d = d
         self.p = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_12dof.urdf")).expanduser().resolve()
+        self.p29 = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_29dof.urdf")).expanduser().resolve()
         
         # QoS: sensor-style (best effort, low latency)
         qos = QoSProfile(
@@ -120,7 +121,7 @@ class MujocoROS2Bridge(Node):
                 mj_joints.add(name)
 
         # URDF movable joints (includes upper body joints in 29dof URDF)
-        urdf_movable = self._parse_urdf_movable_joint_names(str(self.p))
+        urdf_movable = self._parse_urdf_movable_joint_names(str(self.p29))
 
         # Joints that exist in URDF but not in MuJoCo -> placeholders
         self.placeholder_joint_names = [jn for jn in urdf_movable if jn not in mj_joints]
