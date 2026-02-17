@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import time
 
 import mujoco.viewer
@@ -188,7 +190,12 @@ class MujocoROS2Bridge(Node):
         if time.time() - self.last_cmd_vel_walltime <= self.cmd_vel_timeout_sec:
             return
         with self.cmd_lock:
-            self.cmd_shared[:] = 0.0
+            # Support both numpy arrays and Python lists.
+            if hasattr(self.cmd_shared, "fill"):
+                self.cmd_shared.fill(0.0)
+            else:
+                for i in range(min(3, len(self.cmd_shared))):
+                    self.cmd_shared[i] = 0.0
 
     # --------------------------
     # Utilities
@@ -541,6 +548,9 @@ class D435iPublisher(Node):
         rgb = frame_dict.get("rgb_u8", None)
         depth_mm = frame_dict.get("depth_mm_u16", None)
 
+        rgb = rot90_cw(rgb)
+        depth_mm = rot90_cw(depth_mm)
+
         # Use optical frame_id for images (most ROS stacks expect *_optical_frame)
         img_frame_id = self.frame_cam_optical
 
@@ -556,9 +566,10 @@ class D435iPublisher(Node):
         # ----- CameraInfo -----
         intr = frame_dict.get("intrinsics", None)
         if intr is not None:
+            fx2, fy2, cx2, cy2, W2, H2 = rotate_intrinsics_90cw(intr["fx"], intr["fy"], intr["cx"], intr["cy"], frame_dict["width"], frame_dict["height"])
             info = camera_info_from_intrinsics(
-                frame_dict["width"], frame_dict["height"],
-                intr["fx"], intr["fy"], intr["cx"], intr["cy"],
+                W2, H2,
+                fx2, fy2, cx2, cy2,
                 frame_id=img_frame_id, stamp_msg=stamp
             )
             self.pub_camera_info.publish(info)
@@ -585,6 +596,20 @@ class D435iPublisher(Node):
         t.transform.rotation.w = float(q_xyzw[3])
 
         self._tf_pub.sendTransform(t)
+
+def rot90_cw(img: np.ndarray) -> np.ndarray:
+    # 90° clockwise
+    return np.rot90(img, k=-1)  # same as k=3
+
+def rotate_intrinsics_90cw(fx, fy, cx, cy, width, height):
+    new_width  = height
+    new_height = width
+    fx2 = fy
+    fy2 = fx
+    cx2 = (new_width - 1) - cy
+    cy2 = cx
+    return fx2, fy2, cx2, cy2, new_width, new_height
+
 
 def pointcloud2_from_xyz(
     points_xyz: np.ndarray,
