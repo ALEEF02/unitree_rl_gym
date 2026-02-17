@@ -25,7 +25,7 @@ try:
     from rosgraph_msgs.msg import Clock
     from sensor_msgs.msg import JointState, Imu
     from nav_msgs.msg import Odometry
-    from geometry_msgs.msg import TransformStamped
+    from geometry_msgs.msg import TransformStamped, Twist
     from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
     ROS2_ENABLED = True
 except Exception:
@@ -57,6 +57,10 @@ class MujocoROS2Bridge(Node):
         base_frame="base_link",
         livox_frame="livox_frame",
         camera_frame="camera_link",
+        cmd_vel_topic="/unitree/cmd_vel",
+        cmd_vel_timeout_sec=0.8,
+        cmd_lock: threading.Lock | None = None,
+        cmd_shared: np.ndarray | None = None,
     ):
         super().__init__("mujoco_ros2_bridge")
         self.m = m
@@ -90,6 +94,10 @@ class MujocoROS2Bridge(Node):
         self.base_frame = base_frame
         self.livox_frame = livox_frame
         self.camera_frame = camera_frame
+        self.cmd_lock = cmd_lock
+        self.cmd_shared = cmd_shared
+        self.last_cmd_vel_walltime = time.time()
+        self.cmd_vel_timeout_sec = float(cmd_vel_timeout_sec)
 
         # IDs from MJCF
         self.base_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, base_body_name)
@@ -134,6 +142,13 @@ class MujocoROS2Bridge(Node):
         ]
         print(f"[upper-body placeholder] {len(self.placeholder_joint_names)} placeholder joints")
 
+        self.cmd_sub = None
+        if self.cmd_lock is not None and self.cmd_shared is not None:
+            self.cmd_sub = self.create_subscription(Twist, cmd_vel_topic, self._cmd_vel_cb, 10)
+            self.get_logger().info(
+                f"Subscribed to velocity command topic: {cmd_vel_topic} (timeout={self.cmd_vel_timeout_sec:.2f}s)"
+            )
+
     def _augment_joint_state(self, js_msg):
         """
         Mutates a sensor_msgs/JointState: appends placeholder joints at 0 position/velocity.
@@ -159,6 +174,21 @@ class MujocoROS2Bridge(Node):
         # <joint name="..." type="...">
         matches = re.findall(r'<joint\s+name="([^"]+)"\s+type="([^"]+)"', txt)
         return [name for (name, jtype) in matches if jtype.strip().lower() != "fixed"]
+
+    def _cmd_vel_cb(self, msg: Twist):
+        with self.cmd_lock:
+            self.cmd_shared[0] = float(msg.linear.x)
+            self.cmd_shared[1] = float(msg.linear.y)
+            self.cmd_shared[2] = float(msg.angular.z)
+        self.last_cmd_vel_walltime = time.time()
+
+    def enforce_cmd_vel_timeout(self):
+        if self.cmd_sub is None:
+            return
+        if time.time() - self.last_cmd_vel_walltime <= self.cmd_vel_timeout_sec:
+            return
+        with self.cmd_lock:
+            self.cmd_shared[:] = 0.0
 
     # --------------------------
     # Utilities
@@ -1161,11 +1191,18 @@ if __name__ == "__main__":
     d435_node = None
     if ROS2_ENABLED:
         rclpy.init(args=None)
-        ros_bridge = MujocoROS2Bridge(m, d)
+        ros_bridge = MujocoROS2Bridge(
+            m,
+            d,
+            cmd_vel_topic="/unitree/cmd_vel",
+            cmd_lock=cmd_lock,
+            cmd_shared=cmd_shared,
+        )
         livox_node = LivoxPublisher(m, d)
         d435_node = D435iPublisher(m, d)
         print("[ROS2] Publishing /clock, /tf, /tf_static, /joint_states, /odom, /imu")
         print("[ROS2] Publishing /livox/points (sensor_msgs/PointCloud2)")
+        print("[ROS2] Subscribed /unitree/cmd_vel (geometry_msgs/Twist -> [vx, vy, yaw_rate])")
         print("[ROS2] Publishing D435i topics:")
         print("  /intel/D435i/color (sensor_msgs/Image rgb8)")
         print("  /intel/D435i/depth (sensor_msgs/Image 16UC1, mm)")
@@ -1181,6 +1218,9 @@ if __name__ == "__main__":
         start = time.time()
         while viewer.is_running() and time.time() - start < simulation_duration:
             step_start = time.time()
+            if ros_bridge is not None:
+                rclpy.spin_once(ros_bridge, timeout_sec=0.0)
+                ros_bridge.enforce_cmd_vel_timeout()
 
             # --- Robust joint state extraction for PD control ---
             qj_raw = d.qpos[qpos_adr]
@@ -1242,7 +1282,6 @@ if __name__ == "__main__":
 
             if ros_bridge is not None:
                 ros_bridge.publish_step(m.opt.timestep)
-                rclpy.spin_once(ros_bridge, timeout_sec=0.0)
 
             cloud = lidar.step(d, dt=m.opt.timestep)
             if cloud is not None:
