@@ -523,6 +523,15 @@ class D435iPublisher(Node):
         # MuJoCo cam: +X right, +Y up, -Z forward
         # So optical = R * mjcam where R = diag(1,-1,-1)
         self.R_opt_mjcam = np.array([[1,0,0],[0,-1,0],[0,0,-1]], dtype=np.float64)
+        # Images are rotated 90deg clockwise before publishing. That changes the
+        # implied optical basis by +90deg about +Z, so TF must include the inverse
+        # rotation to keep DepthCloud geometry consistent.
+        self.R_optical_framecorr = np.array(
+            [[0.0, 1.0, 0.0],
+             [-1.0, 0.0, 0.0],
+             [0.0, 0.0, 1.0]],
+            dtype=np.float64,
+        )
 
     def publish_frames_and_images(self, frame_dict: dict):
         stamp = self.get_clock().now().to_msg()
@@ -541,7 +550,7 @@ class D435iPublisher(Node):
         # We publish world->optical using: R_w_opt = R_w_cam @ R_cam_opt
         # where R_cam_opt = (R_opt_mjcam)^T because we defined R_opt_mjcam mapping mjcam->optical.
         R_cam_opt = self.R_opt_mjcam.T
-        R_w_opt = R @ R_cam_opt
+        R_w_opt = R @ R_cam_opt @ self.R_optical_framecorr
         self._publish_pose_tf(self.frame_world, self.frame_cam_optical, p, R_w_opt, stamp)
 
         # ----- Images -----
