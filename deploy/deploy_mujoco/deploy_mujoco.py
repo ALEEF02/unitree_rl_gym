@@ -615,8 +615,8 @@ def rotate_intrinsics_90cw(fx, fy, cx, cy, width, height):
     new_height = width
     fx2 = fy
     fy2 = fx
-    cx2 = (new_width - 1) - cy
-    cy2 = cx
+    cx2 = cy
+    cy2 = (width - 1) - cx
     return fx2, fy2, cx2, cy2, new_width, new_height
 
 

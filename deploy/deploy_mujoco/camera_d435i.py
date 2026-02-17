@@ -300,17 +300,18 @@ class D435iDepthSim:
         """
         d = depth_m.copy()
 
-        # Clip to near/far and mark invalid as 0 (RealSense often uses 0 for invalid)
+        # Clip to near/far; render out-of-range / invalid at max distance
         invalid = (d < self.z_near) | (d > self.z_far) | ~np.isfinite(d)
-        d[invalid] = 0.0
+        valid = ~invalid
+        d[invalid] = self.z_far
 
-        # Optional dropout
+        # Optional dropout (dropped pixels also at max distance)
         if self.dropout_prob > 0.0:
             mask = self.rng.random(d.shape) < self.dropout_prob
-            d[mask] = 0.0
+            d[mask] = self.z_far
+            valid = valid & ~mask
 
         # Add noise only where valid
-        valid = d > 0.0
         if self.depth_noise_sigma_m > 0.0:
             d[valid] += self.rng.normal(0.0, self.depth_noise_sigma_m, size=valid.sum())
 
@@ -394,13 +395,13 @@ class D435iDepthSim:
         """
         Build a RealSense-like Z-depth image (16UC1, millimeters) from raycast hits.
         - Depth is Z in the RealSense optical frame (+Z forward).
-        - Unhit pixels are 0 (like RealSense invalid depth).
+        - Unhit / out-of-range pixels are rendered at max distance (z_far).
         Also returns per-hit colors and the raycast pointcloud (optical).
         """
         pts_opt, pix = self._raycast_pointcloud_optical()  # pts in optical frame
         H, W = self.height, self.width
 
-        depth_z = np.zeros((H, W), dtype=np.float32)
+        depth_z = np.full((H, W), self.z_far, dtype=np.float32)
 
         if pts_opt.shape[0] > 0:
             z = pts_opt[:, 2].astype(np.float32)  # optical Z depth
