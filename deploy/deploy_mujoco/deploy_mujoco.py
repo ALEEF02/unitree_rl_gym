@@ -397,7 +397,14 @@ class MujocoROS2Bridge(Node):
     # --------------------------
     # Publish per sim step
     # --------------------------
-    def publish_step(self, dt: float, *, stamp_msg=None, sim_time: float | None = None):
+    def publish_step(
+        self,
+        dt: float,
+        *,
+        stamp_msg=None,
+        sim_time: float | None = None,
+        sim_stamp_ns: int | None = None,
+    ):
         """
         Call once per MuJoCo step AFTER mj_step.
         """
@@ -407,9 +414,16 @@ class MujocoROS2Bridge(Node):
         else:
             self.sim_time = float(sim_time)
 
+        if sim_stamp_ns is None and stamp_msg is not None:
+            sim_stamp_ns = int(stamp_msg.sec) * 1_000_000_000 + int(stamp_msg.nanosec)
+
         if stamp_msg is None:
             stamp = self.get_clock().now().to_msg()
-            sec, nsec = sim_time_to_sec_nsec(self.sim_time)
+            if sim_stamp_ns is not None:
+                sec = int(sim_stamp_ns // 1_000_000_000)
+                nsec = int(sim_stamp_ns % 1_000_000_000)
+            else:
+                sec, nsec = sim_time_to_sec_nsec(self.sim_time)
             stamp.sec = sec
             stamp.nanosec = nsec
         else:
@@ -427,9 +441,13 @@ class MujocoROS2Bridge(Node):
         if publish_clock:
             t0 = time.perf_counter()
             clk = Clock()
-            sec, nsec = sim_time_to_sec_nsec(self.sim_time)
-            clk.clock.sec = sec
-            clk.clock.nanosec = nsec
+            if sim_stamp_ns is not None:
+                clk.clock.sec = int(sim_stamp_ns // 1_000_000_000)
+                clk.clock.nanosec = int(sim_stamp_ns % 1_000_000_000)
+            else:
+                sec, nsec = sim_time_to_sec_nsec(self.sim_time)
+                clk.clock.sec = sec
+                clk.clock.nanosec = nsec
             self.pub_clock.publish(clk)
             self._stats["clock_msgs"] += 1
             self._add_stat_time("t_clock_s", time.perf_counter() - t0)
@@ -556,10 +574,9 @@ class LivoxPublisher(Node):
         self.pub = self.create_publisher(PointCloud2, "/livox/points", qos)
 
         # IDs from MJCF
-        self.body_lidar_frame = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "lidar_frame")
         self.site_livox = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SITE, "livox_mid360")
-        if self.body_lidar_frame < 0 or self.site_livox < 0:
-            raise ValueError("Could not find lidar_frame body or livox_mid360 site in MJCF")
+        if self.site_livox < 0:
+            raise ValueError("Could not find livox_mid360 site in MJCF")
 
         # TF broadcaster
         from tf2_ros import TransformBroadcaster
@@ -568,11 +585,6 @@ class LivoxPublisher(Node):
         self._TransformStamped = TransformStamped
 
     def publish_tf(self, stamp_msg):
-        # world -> lidar_frame (body)
-        p = self.d.xpos[self.body_lidar_frame].copy()
-        R = self.d.xmat[self.body_lidar_frame].reshape(3, 3).copy()
-        self._send_tf("world", "lidar_frame", p, R, stamp_msg)
-
         # world -> livox_mid360 (site)
         p = self.d.site_xpos[self.site_livox].copy()
         R = self.d.site_xmat[self.site_livox].reshape(3, 3).copy()
@@ -1350,7 +1362,7 @@ if __name__ == "__main__":
         site_name="livox_mid360",
         frame_rate_hz=10.0,
         points_per_second=200_000,
-        max_points_per_frame=800,   # start smaller for speed; raise once stable
+        max_points_per_frame=8000,   # start smaller for speed; raise once stable
         range_max=30.0,              # indoor-ish cap; raise if needed
         range_noise_sigma=0.02,
         output_frame="site"
@@ -1595,15 +1607,32 @@ if __name__ == "__main__":
                 runtime_profile["viewer_s"] += time.perf_counter() - t0
 
             sim_stamp = None
+            sim_stamp_ns = None
             if ros_bridge is not None:
+                # Use wall-clock timestamping for ROS messages to keep freshness checks
+                # in downstream stacks (e.g. Nav2 timing gates) aligned.
+                sim_stamp_ns = time.time_ns()
                 sim_stamp = ros_bridge.get_clock().now().to_msg()
-                sec, nsec = sim_time_to_sec_nsec(sim_time)
+                sec = int(sim_stamp_ns // 1_000_000_000)
+                nsec = int(sim_stamp_ns % 1_000_000_000)
                 sim_stamp.sec = sec
                 sim_stamp.nanosec = nsec
 
                 t0 = time.perf_counter()
-                ros_bridge.publish_step(m.opt.timestep, stamp_msg=sim_stamp, sim_time=sim_time)
+                ros_bridge.publish_step(
+                    m.opt.timestep,
+                    stamp_msg=sim_stamp,
+                    sim_time=sim_time,
+                    sim_stamp_ns=sim_stamp_ns,
+                )
                 runtime_profile["bridge_pub_s"] += time.perf_counter() - t0
+
+            livox_stamp = None
+            if livox_node is not None:
+                livox_stamp = sim_stamp if sim_stamp is not None else livox_node.get_clock().now().to_msg()
+                t0 = time.perf_counter()
+                livox_node.publish_tf(livox_stamp)
+                runtime_profile["lidar_ros_s"] += time.perf_counter() - t0
 
             t0 = time.perf_counter()
             cloud = lidar.step(d, dt=m.opt.timestep)
@@ -1612,8 +1641,7 @@ if __name__ == "__main__":
                 last_lidar_pts_site = cloud  # (N,3) in site frame
                 if livox_node is not None:
                     t1 = time.perf_counter()
-                    stamp = sim_stamp if sim_stamp is not None else livox_node.get_clock().now().to_msg()
-                    livox_node.publish_tf(stamp)
+                    stamp = livox_stamp if livox_stamp is not None else livox_node.get_clock().now().to_msg()
 
                     frame_id = "livox_mid360"
                     pack_t0 = time.perf_counter()
