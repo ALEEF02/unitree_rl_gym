@@ -35,6 +35,19 @@ except Exception:
         def __init__(self, *args, **kwargs):
             raise ImportError("Node is not installed.")
 
+
+def sim_time_to_sec_nsec(sim_time: float) -> tuple[int, int]:
+    sec = int(sim_time)
+    nsec = int((sim_time - sec) * 1e9)
+    if nsec >= 1_000_000_000:
+        sec += 1
+        nsec -= 1_000_000_000
+    elif nsec < 0:
+        sec -= 1
+        nsec += 1_000_000_000
+    return sec, nsec
+
+
 class MujocoROS2Bridge(Node):
     """
     Publishes:
@@ -62,6 +75,12 @@ class MujocoROS2Bridge(Node):
         cmd_vel_timeout_sec=0.8,
         cmd_lock: threading.Lock | None = None,
         cmd_shared: np.ndarray | None = None,
+        clock_hz: float | None = None,
+        tf_hz: float | None = None,
+        odom_hz: float | None = None,
+        imu_hz: float | None = None,
+        joint_hz: float | None = None,
+        profile_enabled: bool = False,
     ):
         super().__init__("mujoco_ros2_bridge")
         self.m = m
@@ -121,6 +140,20 @@ class MujocoROS2Bridge(Node):
 
         # sim clock accumulator
         self.sim_time = 0.0
+        self._profile_enabled = bool(profile_enabled)
+        self._stats = self._new_stats()
+
+        self._clock_period = self._hz_to_period(clock_hz)
+        self._tf_period = self._hz_to_period(tf_hz)
+        self._odom_period = self._hz_to_period(odom_hz)
+        self._imu_period = self._hz_to_period(imu_hz)
+        self._joint_period = self._hz_to_period(joint_hz)
+
+        self._last_clock_t = -1e12
+        self._last_tf_t = -1e12
+        self._last_odom_t = -1e12
+        self._last_imu_t = -1e12
+        self._last_joint_t = -1e12
 
         # MuJoCo joint names present in this MJCF
         mj_joints = set()
@@ -149,6 +182,65 @@ class MujocoROS2Bridge(Node):
             self.get_logger().info(
                 f"Subscribed to velocity command topic: {cmd_vel_topic} (timeout={self.cmd_vel_timeout_sec:.2f}s)"
             )
+
+    @staticmethod
+    def _hz_to_period(hz: float | None) -> float | None:
+        if hz is None:
+            return None
+        hz = float(hz)
+        if hz <= 0.0:
+            return None
+        return 1.0 / hz
+
+    @staticmethod
+    def _new_stats() -> dict:
+        return {
+            "publish_calls": 0,
+            "sim_time_s": 0.0,
+            "clock_msgs": 0,
+            "tf_msgs": 0,
+            "odom_msgs": 0,
+            "imu_msgs": 0,
+            "joint_msgs": 0,
+            "t_clock_s": 0.0,
+            "t_tf_s": 0.0,
+            "t_odom_s": 0.0,
+            "t_imu_s": 0.0,
+            "t_joint_s": 0.0,
+            "t_total_s": 0.0,
+        }
+
+    def _should_publish(self, period: float | None, sim_time: float, attr_name: str) -> bool:
+        if period is None:
+            return True
+        last_t = getattr(self, attr_name)
+        if sim_time + 1e-12 >= last_t + period:
+            setattr(self, attr_name, sim_time)
+            return True
+        return False
+
+    def _add_stat_time(self, key: str, dt: float) -> None:
+        if self._profile_enabled:
+            self._stats[key] += float(dt)
+
+    def get_stats(self, reset: bool = False) -> dict:
+        stats = dict(self._stats)
+        sim_time = max(float(stats["sim_time_s"]), 1e-9)
+        for k in ("clock_msgs", "tf_msgs", "odom_msgs", "imu_msgs", "joint_msgs"):
+            stats[f"{k}_per_sec"] = float(stats[k]) / sim_time
+
+        total_calls = max(int(stats["publish_calls"]), 1)
+        stats["total_ms_per_call"] = 1e3 * float(stats["t_total_s"]) / total_calls
+        stats["clock_ms_per_msg"] = 1e3 * float(stats["t_clock_s"]) / max(int(stats["clock_msgs"]), 1)
+        stats["tf_ms_per_msg"] = 1e3 * float(stats["t_tf_s"]) / max(int(stats["tf_msgs"]), 1)
+        stats["odom_ms_per_msg"] = 1e3 * float(stats["t_odom_s"]) / max(int(stats["odom_msgs"]), 1)
+        stats["imu_ms_per_msg"] = 1e3 * float(stats["t_imu_s"]) / max(int(stats["imu_msgs"]), 1)
+        stats["joint_ms_per_msg"] = 1e3 * float(stats["t_joint_s"]) / max(int(stats["joint_msgs"]), 1)
+
+        if reset:
+            self._stats = self._new_stats()
+
+        return stats
 
     def _augment_joint_state(self, js_msg):
         """
@@ -305,118 +397,148 @@ class MujocoROS2Bridge(Node):
     # --------------------------
     # Publish per sim step
     # --------------------------
-    def publish_step(self, dt: float):
+    def publish_step(self, dt: float, *, stamp_msg=None, sim_time: float | None = None):
         """
         Call once per MuJoCo step AFTER mj_step.
         """
-        self.sim_time += float(dt)
-        stamp = self.get_clock().now().to_msg()
-
-        # /clock
-        clk = Clock()
-        # Use sim_time for /clock (RViz/SLAM expect this when use_sim_time is true)
-        sec = int(self.sim_time)
-        nsec = int((self.sim_time - sec) * 1e9)
-        clk.clock.sec = sec
-        clk.clock.nanosec = nsec
-        self.pub_clock.publish(clk)
-
-        # base pose in world/odom
-        p_w = self.d.xpos[self.base_body_id].copy()
-        R_w_base = self.d.xmat[self.base_body_id].reshape(3, 3).copy()
-        q_wxyz = self._mat_to_quat_wxyz(R_w_base)
-
-        # base spatial velocity (MuJoCo provides cvel: [ang; lin] in world frame)
-        # Note: cvel is 6D spatial velocity of COM frame; adequate for odom+imu.
-        v6 = self.d.cvel[self.base_body_id].copy()
-        w_w = v6[0:3]   # angular vel world
-        v_w = v6[3:6]   # linear vel world
-
-        # /tf: odom -> base_link (dynamic)
-        tfmsg = TransformStamped()
-        tfmsg.header.stamp = stamp
-        tfmsg.header.frame_id = self.odom_frame
-        tfmsg.child_frame_id = self.base_frame
-        tfmsg.transform.translation.x = float(p_w[0])
-        tfmsg.transform.translation.y = float(p_w[1])
-        tfmsg.transform.translation.z = float(p_w[2])
-        tfmsg.transform.rotation.w = float(q_wxyz[0])
-        tfmsg.transform.rotation.x = float(q_wxyz[1])
-        tfmsg.transform.rotation.y = float(q_wxyz[2])
-        tfmsg.transform.rotation.z = float(q_wxyz[3])
-        self.tf_broadcaster.sendTransform(tfmsg)
-
-        # /odom
-        odom = Odometry()
-        odom.header.stamp = stamp
-        odom.header.frame_id = self.odom_frame
-        odom.child_frame_id = self.base_frame
-        odom.pose.pose.position.x = float(p_w[0])
-        odom.pose.pose.position.y = float(p_w[1])
-        odom.pose.pose.position.z = float(p_w[2])
-        odom.pose.pose.orientation.w = float(q_wxyz[0])
-        odom.pose.pose.orientation.x = float(q_wxyz[1])
-        odom.pose.pose.orientation.y = float(q_wxyz[2])
-        odom.pose.pose.orientation.z = float(q_wxyz[3])
-        odom.twist.twist.linear.x = float(v_w[0])
-        odom.twist.twist.linear.y = float(v_w[1])
-        odom.twist.twist.linear.z = float(v_w[2])
-        odom.twist.twist.angular.x = float(w_w[0])
-        odom.twist.twist.angular.y = float(w_w[1])
-        odom.twist.twist.angular.z = float(w_w[2])
-        self.pub_odom.publish(odom)
-
-        # /joint_states
-        js = JointState()
-        js.header.stamp = stamp
-        js.name = list(self._js_names)
-        if len(self._js_qposadr) > 0:
-            js.position = self.d.qpos[self._js_qposadr].astype(np.float64).tolist()
-        if len(self._js_dofadr) > 0:
-            js.velocity = self.d.qvel[self._js_dofadr].astype(np.float64).tolist()
-        self._augment_joint_state(js)
-        self.pub_joint.publish(js)
-
-        # /imu (in base_link frame)
-        imu = Imu()
-        imu.header.stamp = stamp
-        imu.header.frame_id = self.base_frame
-
-        # orientation (base in world) — many stacks accept it in base frame msg
-        imu.orientation.w = float(q_wxyz[0])
-        imu.orientation.x = float(q_wxyz[1])
-        imu.orientation.y = float(q_wxyz[2])
-        imu.orientation.z = float(q_wxyz[3])
-
-        # angular velocity: express in base frame
-        w_b = (R_w_base.T @ w_w.reshape(3, 1)).reshape(3)
-        imu.angular_velocity.x = float(w_b[0])
-        imu.angular_velocity.y = float(w_b[1])
-        imu.angular_velocity.z = float(w_b[2])
-
-        # linear acceleration: use body spatial acceleration if available
-        # d.cacc: [ang; lin] in world; IMU measures "proper acceleration" (minus gravity)
-        if hasattr(self.d, "cacc"):
-            a6 = self.d.cacc[self.base_body_id].copy()
-            a_w = a6[3:6]
+        t_call = time.perf_counter()
+        if sim_time is None:
+            self.sim_time += float(dt)
         else:
-            # fallback: finite difference of v_w (rough)
-            a_w = np.zeros(3, dtype=np.float64)
+            self.sim_time = float(sim_time)
 
-        g_w = np.array(self.m.opt.gravity, dtype=np.float64)
-        proper_a_w = a_w - g_w
-        proper_a_b = (R_w_base.T @ proper_a_w.reshape(3, 1)).reshape(3)
+        if stamp_msg is None:
+            stamp = self.get_clock().now().to_msg()
+            sec, nsec = sim_time_to_sec_nsec(self.sim_time)
+            stamp.sec = sec
+            stamp.nanosec = nsec
+        else:
+            stamp = stamp_msg
 
-        imu.linear_acceleration.x = float(proper_a_b[0])
-        imu.linear_acceleration.y = float(proper_a_b[1])
-        imu.linear_acceleration.z = float(proper_a_b[2])
+        self._stats["publish_calls"] += 1
+        self._stats["sim_time_s"] += float(dt)
 
-        # unknown covariances
-        imu.orientation_covariance[0] = -1.0
-        imu.angular_velocity_covariance[0] = -1.0
-        imu.linear_acceleration_covariance[0] = -1.0
+        publish_clock = self._should_publish(self._clock_period, self.sim_time, "_last_clock_t")
+        publish_tf = self._should_publish(self._tf_period, self.sim_time, "_last_tf_t")
+        publish_odom = self._should_publish(self._odom_period, self.sim_time, "_last_odom_t")
+        publish_imu = self._should_publish(self._imu_period, self.sim_time, "_last_imu_t")
+        publish_joint = self._should_publish(self._joint_period, self.sim_time, "_last_joint_t")
 
-        self.pub_imu.publish(imu)
+        if publish_clock:
+            t0 = time.perf_counter()
+            clk = Clock()
+            sec, nsec = sim_time_to_sec_nsec(self.sim_time)
+            clk.clock.sec = sec
+            clk.clock.nanosec = nsec
+            self.pub_clock.publish(clk)
+            self._stats["clock_msgs"] += 1
+            self._add_stat_time("t_clock_s", time.perf_counter() - t0)
+
+        if publish_tf or publish_odom or publish_imu:
+            # base pose in world/odom
+            p_w = self.d.xpos[self.base_body_id].copy()
+            R_w_base = self.d.xmat[self.base_body_id].reshape(3, 3).copy()
+            q_wxyz = self._mat_to_quat_wxyz(R_w_base)
+
+            # base spatial velocity (MuJoCo provides cvel: [ang; lin] in world frame)
+            v6 = self.d.cvel[self.base_body_id].copy()
+            w_w = v6[0:3]
+            v_w = v6[3:6]
+
+            if publish_tf:
+                t0 = time.perf_counter()
+                tfmsg = TransformStamped()
+                tfmsg.header.stamp = stamp
+                tfmsg.header.frame_id = self.odom_frame
+                tfmsg.child_frame_id = self.base_frame
+                tfmsg.transform.translation.x = float(p_w[0])
+                tfmsg.transform.translation.y = float(p_w[1])
+                tfmsg.transform.translation.z = float(p_w[2])
+                tfmsg.transform.rotation.w = float(q_wxyz[0])
+                tfmsg.transform.rotation.x = float(q_wxyz[1])
+                tfmsg.transform.rotation.y = float(q_wxyz[2])
+                tfmsg.transform.rotation.z = float(q_wxyz[3])
+                self.tf_broadcaster.sendTransform(tfmsg)
+                self._stats["tf_msgs"] += 1
+                self._add_stat_time("t_tf_s", time.perf_counter() - t0)
+
+            if publish_odom:
+                t0 = time.perf_counter()
+                odom = Odometry()
+                odom.header.stamp = stamp
+                odom.header.frame_id = self.odom_frame
+                odom.child_frame_id = self.base_frame
+                odom.pose.pose.position.x = float(p_w[0])
+                odom.pose.pose.position.y = float(p_w[1])
+                odom.pose.pose.position.z = float(p_w[2])
+                odom.pose.pose.orientation.w = float(q_wxyz[0])
+                odom.pose.pose.orientation.x = float(q_wxyz[1])
+                odom.pose.pose.orientation.y = float(q_wxyz[2])
+                odom.pose.pose.orientation.z = float(q_wxyz[3])
+                odom.twist.twist.linear.x = float(v_w[0])
+                odom.twist.twist.linear.y = float(v_w[1])
+                odom.twist.twist.linear.z = float(v_w[2])
+                odom.twist.twist.angular.x = float(w_w[0])
+                odom.twist.twist.angular.y = float(w_w[1])
+                odom.twist.twist.angular.z = float(w_w[2])
+                self.pub_odom.publish(odom)
+                self._stats["odom_msgs"] += 1
+                self._add_stat_time("t_odom_s", time.perf_counter() - t0)
+
+            if publish_imu:
+                t0 = time.perf_counter()
+                imu = Imu()
+                imu.header.stamp = stamp
+                imu.header.frame_id = self.base_frame
+                imu.orientation.w = float(q_wxyz[0])
+                imu.orientation.x = float(q_wxyz[1])
+                imu.orientation.y = float(q_wxyz[2])
+                imu.orientation.z = float(q_wxyz[3])
+
+                # angular velocity: express in base frame
+                w_b = (R_w_base.T @ w_w.reshape(3, 1)).reshape(3)
+                imu.angular_velocity.x = float(w_b[0])
+                imu.angular_velocity.y = float(w_b[1])
+                imu.angular_velocity.z = float(w_b[2])
+
+                # linear acceleration: use body spatial acceleration if available
+                if hasattr(self.d, "cacc"):
+                    a6 = self.d.cacc[self.base_body_id].copy()
+                    a_w = a6[3:6]
+                else:
+                    a_w = np.zeros(3, dtype=np.float64)
+
+                g_w = np.array(self.m.opt.gravity, dtype=np.float64)
+                proper_a_w = a_w - g_w
+                proper_a_b = (R_w_base.T @ proper_a_w.reshape(3, 1)).reshape(3)
+                imu.linear_acceleration.x = float(proper_a_b[0])
+                imu.linear_acceleration.y = float(proper_a_b[1])
+                imu.linear_acceleration.z = float(proper_a_b[2])
+
+                # unknown covariances
+                imu.orientation_covariance[0] = -1.0
+                imu.angular_velocity_covariance[0] = -1.0
+                imu.linear_acceleration_covariance[0] = -1.0
+
+                self.pub_imu.publish(imu)
+                self._stats["imu_msgs"] += 1
+                self._add_stat_time("t_imu_s", time.perf_counter() - t0)
+
+        if publish_joint:
+            t0 = time.perf_counter()
+            js = JointState()
+            js.header.stamp = stamp
+            js.name = list(self._js_names)
+            if len(self._js_qposadr) > 0:
+                js.position = self.d.qpos[self._js_qposadr].astype(np.float64).tolist()
+            if len(self._js_dofadr) > 0:
+                js.velocity = self.d.qvel[self._js_dofadr].astype(np.float64).tolist()
+            self._augment_joint_state(js)
+            self.pub_joint.publish(js)
+            self._stats["joint_msgs"] += 1
+            self._add_stat_time("t_joint_s", time.perf_counter() - t0)
+
+        self._add_stat_time("t_total_s", time.perf_counter() - t_call)
 
 class LivoxPublisher(Node):
     def __init__(self, m: mujoco.MjModel, d: mujoco.MjData):
@@ -532,8 +654,8 @@ class D435iPublisher(Node):
             dtype=np.float64,
         )
 
-    def publish_frames_and_images(self, frame_dict: dict):
-        stamp = self.get_clock().now().to_msg()
+    def publish_frames_and_images(self, frame_dict: dict, stamp_msg=None):
+        stamp = stamp_msg if stamp_msg is not None else self.get_clock().now().to_msg()
 
         # ----- TF: world -> pelvis, lidar_frame, depth_camera_frame -----
         self._publish_body_tf(self.frame_world, self.frame_pelvis, self.body_pelvis, stamp)
@@ -1098,6 +1220,21 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str, help="config file name in the config folder")
+    parser.add_argument(
+        "--mapping-mode",
+        action="store_true",
+        help="Enable mapping-oriented runtime defaults without changing legacy behavior",
+    )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run simulation loop without MuJoCo GUI viewer",
+    )
+    parser.add_argument(
+        "--web-ui",
+        action="store_true",
+        help="Enable command web UI in mapping mode (legacy mode already enables it by default)",
+    )
     # Sensor visualization controls (MuJoCo overlay markers)
     parser.add_argument(
         "--show-sensors",
@@ -1109,7 +1246,42 @@ if __name__ == "__main__":
         action="store_true",
         help="Print LiDAR timing counters once per second",
     )
+    parser.add_argument(
+        "--profile-runtime",
+        action="store_true",
+        help="Print unified runtime profile (RTF + ROS/camera timings) once per second",
+    )
+    parser.add_argument("--ros-clock-hz", type=float, default=None, help="Max /clock publish rate (Hz)")
+    parser.add_argument("--ros-tf-hz", type=float, default=None, help="Max /tf publish rate (Hz)")
+    parser.add_argument("--ros-odom-hz", type=float, default=None, help="Max /odom publish rate (Hz)")
+    parser.add_argument("--ros-imu-hz", type=float, default=None, help="Max /imu publish rate (Hz)")
+    parser.add_argument("--ros-joint-hz", type=float, default=None, help="Max /joint_states publish rate (Hz)")
     args = parser.parse_args()
+
+    if args.show_sensors and args.headless:
+        warn("--show-sensors has no effect in --headless mode.")
+
+    ros_clock_hz = args.ros_clock_hz
+    ros_tf_hz = args.ros_tf_hz
+    ros_odom_hz = args.ros_odom_hz
+    ros_imu_hz = args.ros_imu_hz
+    ros_joint_hz = args.ros_joint_hz
+
+    if args.mapping_mode:
+        if ros_clock_hz is None:
+            ros_clock_hz = 50.0
+        if ros_tf_hz is None:
+            ros_tf_hz = 30.0
+        if ros_odom_hz is None:
+            ros_odom_hz = 30.0
+        if ros_imu_hz is None:
+            ros_imu_hz = 100.0
+        if ros_joint_hz is None:
+            ros_joint_hz = 20.0
+
+    # Keep legacy default behavior unchanged: web UI on in legacy mode.
+    enable_web_ui = (not args.mapping_mode) or bool(args.web_ui)
+
     config_file = args.config_file
     with open(f"{LEGGED_GYM_ROOT_DIR}/deploy/deploy_mujoco/configs/{config_file}", "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -1146,13 +1318,16 @@ if __name__ == "__main__":
             "h": 0,
         }
 
-        web_thread = threading.Thread(
-            target=start_cmd_web_ui,
-            args=(cmd_shared, cmd_lock, cmd_init, rgb_jpeg_shared, rgb_lock),
-            kwargs=dict(host="127.0.0.1", port=8000, slider_min=-10.0, slider_max=10.0),
-            daemon=True,
-        )
-        web_thread.start()
+        if enable_web_ui:
+            web_thread = threading.Thread(
+                target=start_cmd_web_ui,
+                args=(cmd_shared, cmd_lock, cmd_init, rgb_jpeg_shared, rgb_lock),
+                kwargs=dict(host="127.0.0.1", port=8000, slider_min=-10.0, slider_max=10.0),
+                daemon=True,
+            )
+            web_thread.start()
+        else:
+            print("[cmd web ui] Disabled for this run")
 
     if not hasattr(mujoco, "mj_multiRay"):
         warn("No mj_multiRay capability, this run will be much slower.")
@@ -1197,6 +1372,8 @@ if __name__ == "__main__":
         mount_pitch_deg=-45.0,
         mount_yaw_deg=0.0,
         raycast_stride=1,
+        depth_generation_mode="render_fast" if args.mapping_mode else "raycast",
+        profile_enabled=args.profile_runtime,
     )
 
     # ---------------------------
@@ -1226,6 +1403,24 @@ if __name__ == "__main__":
     last_cam_pts_world = None
     last_cam_cols = None
     lidar_profile_last_wall = time.perf_counter()
+    runtime_profile_last_wall = time.perf_counter()
+    runtime_profile = {
+        "steps": 0,
+        "sim_s": 0.0,
+        "wall_s": 0.0,
+        "spin_ros_s": 0.0,
+        "control_s": 0.0,
+        "mj_step_s": 0.0,
+        "viewer_s": 0.0,
+        "bridge_pub_s": 0.0,
+        "lidar_s": 0.0,
+        "lidar_ros_s": 0.0,
+        "camera_step_s": 0.0,
+        "camera_ros_s": 0.0,
+        "jpeg_s": 0.0,
+        "draw_s": 0.0,
+        "sleep_s": 0.0,
+    }
 
     livox_node = None
     d435_node = None
@@ -1237,6 +1432,12 @@ if __name__ == "__main__":
             cmd_vel_topic="/unitree/cmd_vel",
             cmd_lock=cmd_lock,
             cmd_shared=cmd_shared,
+            clock_hz=ros_clock_hz,
+            tf_hz=ros_tf_hz,
+            odom_hz=ros_odom_hz,
+            imu_hz=ros_imu_hz,
+            joint_hz=ros_joint_hz,
+            profile_enabled=args.profile_runtime,
         )
         livox_node = LivoxPublisher(m, d)
         d435_node = D435iPublisher(m, d)
@@ -1252,20 +1453,93 @@ if __name__ == "__main__":
         ros_bridge = None
         print("[ROS2] rclpy not available; ROS publishing")
 
+    def maybe_print_runtime_profile(now_wall: float):
+        global runtime_profile_last_wall
+        if not args.profile_runtime:
+            return
+        if now_wall - runtime_profile_last_wall < 1.0:
+            return
 
-    with mujoco.viewer.launch_passive(m, d) as viewer:
-        # Close the viewer automatically after simulation_duration wall-seconds.
+        wall = max(runtime_profile["wall_s"], 1e-9)
+        steps = max(runtime_profile["steps"], 1)
+        rtf = runtime_profile["sim_s"] / wall
+
+        print(
+            "[Runtime profile] "
+            f"wall_window={wall:.3f}s sim_window={runtime_profile['sim_s']:.3f}s "
+            f"rtf={rtf:.3f} steps={runtime_profile['steps']} "
+            f"ms/step spin_ros={1e3*runtime_profile['spin_ros_s']/steps:.3f} "
+            f"control={1e3*runtime_profile['control_s']/steps:.3f} "
+            f"mj_step={1e3*runtime_profile['mj_step_s']/steps:.3f} "
+            f"viewer={1e3*runtime_profile['viewer_s']/steps:.3f} "
+            f"bridge={1e3*runtime_profile['bridge_pub_s']/steps:.3f} "
+            f"lidar={1e3*runtime_profile['lidar_s']/steps:.3f} "
+            f"lidar_ros={1e3*runtime_profile['lidar_ros_s']/steps:.3f} "
+            f"camera={1e3*runtime_profile['camera_step_s']/steps:.3f} "
+            f"camera_ros={1e3*runtime_profile['camera_ros_s']/steps:.3f} "
+            f"jpeg={1e3*runtime_profile['jpeg_s']/steps:.3f} "
+            f"draw={1e3*runtime_profile['draw_s']/steps:.3f} "
+            f"sleep={1e3*runtime_profile['sleep_s']/steps:.3f}"
+        )
+
+        if d435 is not None:
+            cam_stats = d435.get_stats(reset=True)
+            print(
+                "[D435 profile] "
+                f"mode={cam_stats['depth_mode']} "
+                f"sim_window={cam_stats['sim_time_s']:.3f}s frames={cam_stats['frames_emitted']} "
+                f"points_per_sec={cam_stats['points_per_sec']:.1f} "
+                f"pts/frame={cam_stats['points_per_frame_avg']:.1f} "
+                f"ms/frame depth={cam_stats['render_depth_ms_per_frame']:.3f} "
+                f"rgb={cam_stats['render_rgb_ms_per_frame']:.3f} "
+                f"depth_model={cam_stats['depth_model_ms_per_frame']:.3f} "
+                f"depth_to_pc={cam_stats['depth_to_pc_ms_per_frame']:.3f} "
+                f"world_xform={cam_stats['world_transform_ms_per_frame']:.3f} "
+                f"total={cam_stats['total_ms_per_frame']:.3f}"
+            )
+
+        if ros_bridge is not None:
+            bridge_stats = ros_bridge.get_stats(reset=True)
+            print(
+                "[ROS bridge profile] "
+                f"sim_window={bridge_stats['sim_time_s']:.3f}s calls={bridge_stats['publish_calls']} "
+                f"rate/s clock={bridge_stats['clock_msgs_per_sec']:.1f} "
+                f"tf={bridge_stats['tf_msgs_per_sec']:.1f} "
+                f"odom={bridge_stats['odom_msgs_per_sec']:.1f} "
+                f"imu={bridge_stats['imu_msgs_per_sec']:.1f} "
+                f"joint={bridge_stats['joint_msgs_per_sec']:.1f} "
+                f"ms/msg clock={bridge_stats['clock_ms_per_msg']:.3f} "
+                f"tf={bridge_stats['tf_ms_per_msg']:.3f} "
+                f"odom={bridge_stats['odom_ms_per_msg']:.3f} "
+                f"imu={bridge_stats['imu_ms_per_msg']:.3f} "
+                f"joint={bridge_stats['joint_ms_per_msg']:.3f}"
+            )
+
+        for key in runtime_profile:
+            runtime_profile[key] = 0.0
+        runtime_profile["steps"] = 0
+        runtime_profile_last_wall = now_wall
+
+    def run_loop(viewer=None):
+        global counter, action, target_dof_pos, obs
+        global last_lidar_pts_site, last_cam_pts_world, last_cam_cols, lidar_profile_last_wall
+
+        sim_time = 0.0
         start = time.time()
-        while viewer.is_running() and time.time() - start < simulation_duration:
+        while (viewer is None or viewer.is_running()) and time.time() - start < simulation_duration:
+            loop_wall_t0 = time.perf_counter()
             step_start = time.time()
+
             if ros_bridge is not None:
+                t0 = time.perf_counter()
                 rclpy.spin_once(ros_bridge, timeout_sec=0.0)
                 ros_bridge.enforce_cmd_vel_timeout()
+                runtime_profile["spin_ros_s"] += time.perf_counter() - t0
 
             # --- Robust joint state extraction for PD control ---
+            t0 = time.perf_counter()
             qj_raw = d.qpos[qpos_adr]
             dqj_raw = d.qvel[qvel_adr]
-
             tau = pd_control(
                 target_dof_pos,
                 qj_raw,
@@ -1275,19 +1549,18 @@ if __name__ == "__main__":
                 kds,
             )
             d.ctrl[:] = tau
+            runtime_profile["control_s"] += time.perf_counter() - t0
 
+            t0 = time.perf_counter()
             mujoco.mj_step(m, d)
+            runtime_profile["mj_step_s"] += time.perf_counter() - t0
+            sim_time += m.opt.timestep
 
             counter += 1
             if counter % control_decimation == 0:
                 # Apply control signal here.
-
-                # --- Robust joint state extraction for observations ---
                 qj = d.qpos[qpos_adr].copy()
                 dqj = d.qvel[qvel_adr].copy()
-
-                # Base orientation and angular velocity are still taken from the floating base.
-                # (Assumes the robot root is the first free body in the model.)
                 quat = d.qpos[3:7]
                 omega = d.qvel[3:6]
 
@@ -1313,46 +1586,55 @@ if __name__ == "__main__":
                 obs[9 + 3 * num_actions : 9 + 3 * num_actions + 2] = np.array([sin_phase, cos_phase])
 
                 obs_tensor = torch.from_numpy(obs).unsqueeze(0)
-                # policy inference
                 action = policy(obs_tensor).detach().numpy().squeeze()
-                # transform action to target_dof_pos
                 target_dof_pos = action * action_scale + default_angles
 
-            viewer.sync()
+            if viewer is not None:
+                t0 = time.perf_counter()
+                viewer.sync()
+                runtime_profile["viewer_s"] += time.perf_counter() - t0
 
+            sim_stamp = None
             if ros_bridge is not None:
-                ros_bridge.publish_step(m.opt.timestep)
+                sim_stamp = ros_bridge.get_clock().now().to_msg()
+                sec, nsec = sim_time_to_sec_nsec(sim_time)
+                sim_stamp.sec = sec
+                sim_stamp.nanosec = nsec
 
+                t0 = time.perf_counter()
+                ros_bridge.publish_step(m.opt.timestep, stamp_msg=sim_stamp, sim_time=sim_time)
+                runtime_profile["bridge_pub_s"] += time.perf_counter() - t0
+
+            t0 = time.perf_counter()
             cloud = lidar.step(d, dt=m.opt.timestep)
+            runtime_profile["lidar_s"] += time.perf_counter() - t0
             if cloud is not None:
                 last_lidar_pts_site = cloud  # (N,3) in site frame
                 if livox_node is not None:
-                    stamp = livox_node.get_clock().now().to_msg()
+                    t1 = time.perf_counter()
+                    stamp = sim_stamp if sim_stamp is not None else livox_node.get_clock().now().to_msg()
                     livox_node.publish_tf(stamp)
 
-                    # Decide what frame_id should be:
-                    # - If lidar.output_frame == "sensor": frame_id like "livox_frame"
-                    # - If lidar.output_frame == "site":   frame_id like "livox_mid360" (site frame)
                     frame_id = "livox_mid360"
-
                     pack_t0 = time.perf_counter()
                     msg = pointcloud2_from_xyz(
-                        cloud,  # (N,3)
+                        cloud,
                         frame_id=frame_id,
                         stamp_msg=stamp,
-                        intensity=None,  # or np.ones((cloud.shape[0],), np.float32)
+                        intensity=None,
                     )
                     lidar.record_pack_time(time.perf_counter() - pack_t0)
                     livox_node.pub.publish(msg)
+                    runtime_profile["lidar_ros_s"] += time.perf_counter() - t1
 
-                    # Keep ROS2 responsive without blocking your sim
-                    rclpy.spin_once(livox_node, timeout_sec=0.0)
-
+            t0 = time.perf_counter()
             frame = d435.step(dt=m.opt.timestep)
+            runtime_profile["camera_step_s"] += time.perf_counter() - t0
             if frame is not None and frame.get("pointcloud_world") is not None:
                 last_cam_pts_world = frame["pointcloud_world"]
                 last_cam_cols = frame.get("point_colors_rgb", None)
-                if frame.get("rgb_u8") is not None:
+                if enable_web_ui and frame.get("rgb_u8") is not None:
+                    t1 = time.perf_counter()
                     try:
                         jpg = rgb_u8_to_jpeg_bytes(frame["rgb_u8"], quality=80)
                         with rgb_lock:
@@ -1361,26 +1643,27 @@ if __name__ == "__main__":
                             rgb_jpeg_shared["h"], rgb_jpeg_shared["w"] = frame["rgb_u8"].shape[:2]
                     except Exception as e:
                         print(e)
-                        pass
+                    runtime_profile["jpeg_s"] += time.perf_counter() - t1
             if frame is not None and d435_node is not None:
-                d435_node.publish_frames_and_images(frame)
-                # Keep ROS2 responsive
-                rclpy.spin_once(d435_node, timeout_sec=0.0)
+                t1 = time.perf_counter()
+                d435_node.publish_frames_and_images(frame, stamp_msg=sim_stamp)
+                runtime_profile["camera_ros_s"] += time.perf_counter() - t1
 
-            if args.show_sensors:
+            if args.show_sensors and viewer is not None:
+                t0 = time.perf_counter()
                 draw_multiple_world_point_sets(
                     viewer, m, d,
                     lidar_site_id=lidar.site_id,
                     lidar_points_site=last_lidar_pts_site if last_lidar_pts_site is not None else None,
                     lidar_radius=0.005,
                     lidar_max=1000,
-
                     cam_points_world=last_cam_pts_world if last_cam_pts_world is not None else None,
                     cam_colors_rgb=last_cam_cols if last_cam_cols is not None else None,
                     cam_radius=0.01,
                     cam_alpha=1.0,
                     cam_max=2400,
                 )
+                runtime_profile["draw_s"] += time.perf_counter() - t0
 
             if args.profile_lidar:
                 now_wall = time.perf_counter()
@@ -1403,7 +1686,21 @@ if __name__ == "__main__":
 
             time_until_next_step = m.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:
+                sleep_t0 = time.perf_counter()
                 time.sleep(time_until_next_step)
+                runtime_profile["sleep_s"] += time.perf_counter() - sleep_t0
+
+            now = time.perf_counter()
+            runtime_profile["steps"] += 1
+            runtime_profile["sim_s"] += m.opt.timestep
+            runtime_profile["wall_s"] += now - loop_wall_t0
+            maybe_print_runtime_profile(now)
+
+    if args.headless:
+        run_loop(viewer=None)
+    else:
+        with mujoco.viewer.launch_passive(m, d) as viewer:
+            run_loop(viewer=viewer)
 
     if ros_bridge is not None or livox_node is not None or d435_node is not None:
         if ros_bridge is not None:

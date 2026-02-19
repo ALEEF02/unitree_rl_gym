@@ -53,6 +53,8 @@ class D435iDepthSim:
         mount_yaw_deg: float = 0.0,
 
         raycast_stride: int = 2,             # cast every Nth pixel (2 => 320x240 rays)
+        depth_generation_mode: str = "raycast",  # "raycast" | "render_fast"
+        profile_enabled: bool = False,
     ):
         self.m = model
         self.d = data
@@ -72,6 +74,8 @@ class D435iDepthSim:
         self.width = int(width)
         self.height = int(height)
         self.fps = float(fps)
+        if self.fps <= 0.0:
+            raise ValueError("fps must be > 0")
         self.frame_dt = 1.0 / self.fps
         self._accum_t = 0.0
 
@@ -115,9 +119,14 @@ class D435iDepthSim:
 
         self.rng = np.random.default_rng(seed)
         self.rendered_depth_is_range = rendered_depth_is_range
+        self.profile_enabled = bool(profile_enabled)
+        self.depth_generation_mode = depth_generation_mode.strip().lower()
+        if self.depth_generation_mode not in ("raycast", "render_fast"):
+            raise ValueError("depth_generation_mode must be 'raycast' or 'render_fast'")
 
         # Mount rotation: SENSOR(camera) -> SITE
         self.R_site_cam = self._rotmat_zyx_deg(mount_yaw_deg, mount_pitch_deg, mount_roll_deg)
+        self._mount_applied = False
 
         # Renderer (offscreen)
         self.renderer = mujoco.Renderer(self.m, height=self.height, width=self.width)
@@ -153,7 +162,49 @@ class D435iDepthSim:
         # unit ray z-component is 1 / sqrt(x^2 + y^2 + 1).
         x = (self._uu - self.cx) / self.fx
         y = (self._vv - self.cy) / self.fy
+        self._x_norm = x.astype(np.float32)
+        self._y_norm = y.astype(np.float32)
         self._ray_unit_z = (1.0 / np.sqrt(x*x + y*y + 1.0)).astype(np.float32)  # (H,W)
+        self._stats = self._new_stats()
+
+        # Apply mounting once; after this, mj_step keeps camera world pose updated.
+        self._apply_mount_to_model_camera(force=True)
+
+    @staticmethod
+    def _new_stats() -> dict:
+        return {
+            "steps": 0,
+            "frames_emitted": 0,
+            "sim_time_s": 0.0,
+            "points_out": 0,
+            "t_render_depth_s": 0.0,
+            "t_render_rgb_s": 0.0,
+            "t_depth_model_s": 0.0,
+            "t_depth_to_pc_s": 0.0,
+            "t_world_transform_s": 0.0,
+            "t_total_frame_s": 0.0,
+        }
+
+    def _add_stat_time(self, key: str, dt: float) -> None:
+        if self.profile_enabled:
+            self._stats[key] += float(dt)
+
+    def get_stats(self, reset: bool = False) -> dict:
+        stats = dict(self._stats)
+        sim_time = max(float(stats["sim_time_s"]), 1e-9)
+        frames = max(int(stats["frames_emitted"]), 1)
+        stats["depth_mode"] = self.depth_generation_mode
+        stats["points_per_sec"] = float(stats["points_out"]) / sim_time
+        stats["points_per_frame_avg"] = float(stats["points_out"]) / frames
+        stats["render_depth_ms_per_frame"] = 1e3 * float(stats["t_render_depth_s"]) / frames
+        stats["render_rgb_ms_per_frame"] = 1e3 * float(stats["t_render_rgb_s"]) / frames
+        stats["depth_model_ms_per_frame"] = 1e3 * float(stats["t_depth_model_s"]) / frames
+        stats["depth_to_pc_ms_per_frame"] = 1e3 * float(stats["t_depth_to_pc_s"]) / frames
+        stats["world_transform_ms_per_frame"] = 1e3 * float(stats["t_world_transform_s"]) / frames
+        stats["total_ms_per_frame"] = 1e3 * float(stats["t_total_frame_s"]) / frames
+        if reset:
+            self._stats = self._new_stats()
+        return stats
 
 
     @staticmethod
@@ -194,11 +245,14 @@ class D435iDepthSim:
         mujoco.mju_mat2Quat(q, R.reshape(-1).astype(np.float64))
         return q
 
-    def _apply_mount_to_model_camera(self):
+    def _apply_mount_to_model_camera(self, force: bool = False):
         """
         Applies mount rotation to the *rendered camera orientation* by updating model.cam_quat
         and then recomputing kinematics so rendering uses the new orientation.
         """
+        if self._mount_applied and not force:
+            return
+
         # Base camera local rotation from MJCF
         R_base = self._quat_to_mat(self._cam_quat0)
 
@@ -210,6 +264,7 @@ class D435iDepthSim:
 
         # CRITICAL: recompute derived quantities (cam_xmat/xpos) after modifying model
         mujoco.mj_forward(self.m, self.d)
+        self._mount_applied = True
 
     def _site_pose_world(self):
         # site->world
@@ -239,7 +294,6 @@ class D435iDepthSim:
         return depth.astype(np.float32)
 
     def _render_depth_m(self) -> np.ndarray:
-        self._apply_mount_to_model_camera()
         self.renderer.update_scene(self.d, camera=self.cam_name)
 
         if self._renderer_has_depth_kw:
@@ -259,7 +313,6 @@ class D435iDepthSim:
         return depth
 
     def _render_rgb_u8(self) -> np.ndarray:
-        self._apply_mount_to_model_camera()
         self.renderer.update_scene(self.d, camera=self.cam_name)
 
         if self._renderer_has_depth_kw:
@@ -324,9 +377,6 @@ class D435iDepthSim:
           pix: (N,2) pixel coords (row,col) aligned with points
         Uses true ray intersections (like LiDAR), so geometry is rigid under any rotation.
         """
-        # Ensure camera pose reflects mount
-        self._apply_mount_to_model_camera()
-
         # Camera pose in world (MuJoCo camera frame)
         p_cw, R_w_cam = self._camera_pose_world()
 
@@ -432,6 +482,55 @@ class D435iDepthSim:
 
         return depth_z, depth_mm_u16, pts_opt, pix, cols
 
+    def _render_depth_to_z(self, depth_render_m: np.ndarray) -> np.ndarray:
+        if self.rendered_depth_is_range:
+            depth_z = depth_render_m.astype(np.float32, copy=False) * self._ray_unit_z
+        else:
+            depth_z = depth_render_m.astype(np.float32, copy=True)
+        return depth_z
+
+    def _pointcloud_from_depth_z(
+        self,
+        depth_z: np.ndarray,
+        rgb_u8: np.ndarray,
+    ):
+        valid = depth_z > 0.0
+        rows, cols = np.nonzero(valid)
+        n = int(rows.shape[0])
+        if n == 0:
+            return (
+                np.zeros((0, 3), dtype=np.float32),
+                np.zeros((0, 2), dtype=np.int32),
+                np.zeros((0, 3), dtype=np.uint8),
+            )
+
+        z = depth_z[rows, cols].astype(np.float32, copy=False)
+        x = self._x_norm[rows, cols] * z
+        y = self._y_norm[rows, cols] * z
+        pts_opt = np.stack([x, y, z], axis=1).astype(np.float32, copy=False)
+        pix = np.stack([rows.astype(np.int32), cols.astype(np.int32)], axis=1)
+        cols_rgb = rgb_u8[rows, cols, :]
+
+        if self.max_points > 0 and pts_opt.shape[0] > self.max_points:
+            idx = np.linspace(0, pts_opt.shape[0] - 1, num=self.max_points, dtype=np.int64)
+            pts_opt = pts_opt[idx]
+            pix = pix[idx]
+            cols_rgb = cols_rgb[idx]
+
+        return pts_opt, pix, cols_rgb
+
+    def _render_fast_depth_image_mm_u16(self, depth_render_m: np.ndarray, rgb_u8: np.ndarray):
+        depth_z = self._render_depth_to_z(depth_render_m)
+        t0 = time.perf_counter()
+        depth_z = self._apply_depth_model(depth_z)
+        self._add_stat_time("t_depth_model_s", time.perf_counter() - t0)
+
+        depth_mm_u16 = np.clip(depth_z * 1000.0, 0, 65535).astype(np.uint16)
+        t0 = time.perf_counter()
+        pts_opt, pix, cols = self._pointcloud_from_depth_z(depth_z, rgb_u8)
+        self._add_stat_time("t_depth_to_pc_s", time.perf_counter() - t0)
+        return depth_z, depth_mm_u16, pts_opt, pix, cols
+
 
     def step(self, dt: float) -> dict | None:
         """
@@ -443,25 +542,45 @@ class D435iDepthSim:
           intrinsics: dict
           pointcloud: (N,3) float32 in camera/world frame (optional)
         """
+        frame_t0 = time.perf_counter()
+        self._stats["steps"] += 1
+        self._stats["sim_time_s"] += float(dt)
         self._accum_t += float(dt)
         if self._accum_t < self.frame_dt:
             return None
         self._accum_t -= self.frame_dt
+        self._stats["frames_emitted"] += 1
 
-        depth_m = self._render_depth_m()
-        depth_m = self._apply_depth_model(depth_m)
+        t0 = time.perf_counter()
+        depth_render_m = self._render_depth_m()
+        self._add_stat_time("t_render_depth_s", time.perf_counter() - t0)
+
+        t0 = time.perf_counter()
         rgb_u8 = self._render_rgb_u8()
+        self._add_stat_time("t_render_rgb_s", time.perf_counter() - t0)
 
-        # Match RealSense-like depth representation: uint16 in millimeters
-        # Convert rendered depth to RealSense-style Z-depth if the renderer returns range depth
-        depth_z_m, depth_mm_u16, pts_cam_optical, pix, colors = self._raycast_depth_image_mm_u16(rgb_u8)
+        if self.depth_generation_mode == "raycast":
+            # Legacy path: render range depth + raycast reconstruction for Z-depth image.
+            t0 = time.perf_counter()
+            depth_range_m = self._apply_depth_model(depth_render_m)
+            self._add_stat_time("t_depth_model_s", time.perf_counter() - t0)
+            t0 = time.perf_counter()
+            depth_z_m, depth_mm_u16, pts_cam_optical, pix, colors = self._raycast_depth_image_mm_u16(rgb_u8)
+            self._add_stat_time("t_depth_to_pc_s", time.perf_counter() - t0)
+        else:
+            # Fast path: render depth -> Z-depth -> pointcloud via vectorized unprojection.
+            depth_range_m = depth_render_m
+            depth_z_m, depth_mm_u16, pts_cam_optical, pix, colors = self._render_fast_depth_image_mm_u16(
+                depth_render_m,
+                rgb_u8,
+            )
 
         frame = {
             "t_wall": time.time(),
             "width": self.width,
             "height": self.height,
             "depth_m": depth_z_m,
-            "depth_range_m": depth_m,
+            "depth_range_m": depth_range_m,
             "depth_mm_u16": depth_mm_u16,
             "rgb_u8": rgb_u8,
             "intrinsics": {
@@ -476,9 +595,12 @@ class D435iDepthSim:
             #colors = rgb_u8[pix[:, 0], pix[:, 1], :] if pix.shape[0] else np.zeros((0,3), np.uint8)
 
             # Optical -> MuJoCo cam frame -> world
+            t0 = time.perf_counter()
             pts_cam_mj = (self.R_mjcam_optical @ pts_cam_optical.T).T
             p_cw, R_w_cam = self._camera_pose_world()
             pts_world = p_cw[None, :] + (R_w_cam @ pts_cam_mj.T).T
+            self._add_stat_time("t_world_transform_s", time.perf_counter() - t0)
+            self._stats["points_out"] += int(pts_world.shape[0])
 
             frame["pointcloud_world"] = pts_world.astype(np.float32)
             frame["point_colors_rgb"] = colors
@@ -495,5 +617,5 @@ class D435iDepthSim:
                 frame["pointcloud"] = frame["pointcloud_world"]
                 frame["pointcloud_frame"] = "world"
 
-
+        self._add_stat_time("t_total_frame_s", time.perf_counter() - frame_t0)
         return frame
