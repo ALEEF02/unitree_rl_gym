@@ -8,7 +8,6 @@ import numpy as np
 from legged_gym import LEGGED_GYM_ROOT_DIR
 import torch
 import yaml
-import struct
 from pathlib import Path
 from warnings import warn
 import re
@@ -645,7 +644,7 @@ def pointcloud2_from_xyz(
 
     n = pts.shape[0]
     if intensity is None:
-        inten = np.zeros((n,), dtype=np.float32)
+        inten = None
     else:
         inten = np.asarray(intensity, dtype=np.float32).reshape(-1)
         if inten.shape[0] != n:
@@ -653,12 +652,13 @@ def pointcloud2_from_xyz(
 
     # Pack as little-endian float32: x y z intensity
     # point_step = 16 bytes
-    data = bytearray(n * 16)
-    off = 0
-    pack = struct.Struct("<ffff").pack
-    for i in range(n):
-        data[off:off+16] = pack(float(pts[i, 0]), float(pts[i, 1]), float(pts[i, 2]), float(inten[i]))
-        off += 16
+    packed = np.empty((n, 4), dtype=np.dtype("<f4"))
+    if n > 0:
+        packed[:, :3] = pts
+        if inten is None:
+            packed[:, 3] = 0.0
+        else:
+            packed[:, 3] = inten
 
     msg = PointCloud2()
     msg.header = Header()
@@ -678,7 +678,7 @@ def pointcloud2_from_xyz(
     ]
     msg.point_step = 16
     msg.row_step = msg.point_step * n
-    msg.data = bytes(data)
+    msg.data = packed.tobytes()
     return msg
 
 def ros_image_from_numpy(arr: np.ndarray, *, frame_id: str, stamp_msg, encoding: str):
@@ -1104,6 +1104,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Draw sensor outputs (LiDAR + D435 point clouds) in MuJoCo viewer overlay",
     )
+    parser.add_argument(
+        "--profile-lidar",
+        action="store_true",
+        help="Print LiDAR timing counters once per second",
+    )
     args = parser.parse_args()
     config_file = args.config_file
     with open(f"{LEGGED_GYM_ROOT_DIR}/deploy/deploy_mujoco/configs/{config_file}", "r") as f:
@@ -1220,6 +1225,7 @@ if __name__ == "__main__":
     last_lidar_pts_site = None  # lidar output_frame="site"
     last_cam_pts_world = None
     last_cam_cols = None
+    lidar_profile_last_wall = time.perf_counter()
 
     livox_node = None
     d435_node = None
@@ -1329,12 +1335,14 @@ if __name__ == "__main__":
                     # - If lidar.output_frame == "site":   frame_id like "livox_mid360" (site frame)
                     frame_id = "livox_mid360"
 
+                    pack_t0 = time.perf_counter()
                     msg = pointcloud2_from_xyz(
                         cloud,  # (N,3)
                         frame_id=frame_id,
                         stamp_msg=stamp,
                         intensity=None,  # or np.ones((cloud.shape[0],), np.float32)
                     )
+                    lidar.record_pack_time(time.perf_counter() - pack_t0)
                     livox_node.pub.publish(msg)
 
                     # Keep ROS2 responsive without blocking your sim
@@ -1373,6 +1381,25 @@ if __name__ == "__main__":
                     cam_alpha=1.0,
                     cam_max=2400,
                 )
+
+            if args.profile_lidar:
+                now_wall = time.perf_counter()
+                if now_wall - lidar_profile_last_wall >= 1.0:
+                    stats = lidar.get_stats(reset=True)
+                    print(
+                        "[LiDAR profile] "
+                        f"sim_window={stats['sim_time_s']:.3f}s "
+                        f"frames={stats['frames_emitted']} "
+                        f"rays={stats['rays_cast']} ({stats['rays_per_sec']:.1f}/s) "
+                        f"points={stats['points_kept']} ({stats['points_per_sec']:.1f}/s, "
+                        f"{stats['points_per_frame_avg']:.1f}/frame) "
+                        f"ms/frame sample={stats['sample_ms_per_frame']:.3f} "
+                        f"transform={stats['transform_ms_per_frame']:.3f} "
+                        f"raycast={stats['raycast_ms_per_frame']:.3f} "
+                        f"post={stats['postprocess_ms_per_frame']:.3f} "
+                        f"pack={stats['pack_ms_per_frame']:.3f}"
+                    )
+                    lidar_profile_last_wall = now_wall
 
             time_until_next_step = m.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:

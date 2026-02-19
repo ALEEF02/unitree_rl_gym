@@ -1,6 +1,9 @@
 import math
-import numpy as np
+import time
+from warnings import warn
+
 import mujoco
+import numpy as np
 
 class LivoxMid360Sim:
     """
@@ -39,9 +42,12 @@ class LivoxMid360Sim:
             raise ValueError(f"Site '{site_name}' not found in MJCF.")
 
         self.frame_rate_hz = float(frame_rate_hz)
+        if self.frame_rate_hz <= 0.0:
+            raise ValueError("frame_rate_hz must be > 0")
         self.points_per_second = int(points_per_second)
         self.points_per_frame_target = int(round(self.points_per_second / self.frame_rate_hz))
-        self.points_per_frame = int(min(self.points_per_frame_target, max_points_per_frame))
+        self.points_per_frame = max(1, int(min(self.points_per_frame_target, max_points_per_frame)))
+        self.effective_points_per_second = float(self.points_per_frame * self.frame_rate_hz)
 
         self.vmin = math.radians(v_fov_down_deg)
         self.vmax = math.radians(v_fov_up_deg)
@@ -63,15 +69,51 @@ class LivoxMid360Sim:
         if self.output_frame not in ("sensor", "site", "world"):
             raise ValueError("output_frame must be one of: 'sensor', 'site', 'world'")
 
+        self._has_multi_ray = hasattr(mujoco, "mj_multiRay")
+        self._warned_mj_ray_fallback = False
 
-        # Accumulate points until we hit a "frame boundary" (1/frame_rate_hz)
+        # Time accumulators.
         self._frame_dt = 1.0 / self.frame_rate_hz
         self._accum_t = 0.0
-        self._accum_points = []
+        self._point_budget = 0.0
 
-        # Precompute direction set per frame (quasi-uniform random within FOV)
-        # Livox is non-repetitive; random sampling is a reasonable approximation.
-        self._dirs_lidar = self._sample_dirs_lidar(self.points_per_frame)
+        # Frame buffer (bounded by points_per_frame).
+        self._frame_points = np.empty((self.points_per_frame, 3), dtype=np.float64)
+        self._frame_count = 0
+
+        # Reusable hot-path buffers.
+        self._pnt = np.zeros((3, 1), dtype=np.float64)
+        self._dirs_sensor = np.empty((self.points_per_frame, 3), dtype=np.float64)
+        self._dirs_site = np.empty((self.points_per_frame, 3), dtype=np.float64)
+        self._dirs_world = np.empty((self.points_per_frame, 3), dtype=np.float64)
+        self._dists = np.empty((self.points_per_frame,), dtype=np.float64)
+        self._tmp_dists = np.empty((self.points_per_frame,), dtype=np.float64)
+        self._tmp_points = np.empty((self.points_per_frame, 3), dtype=np.float64)
+
+        if self._has_multi_ray:
+            self._vec = np.empty((3 * self.points_per_frame, 1), dtype=np.float64)
+            self._multi_geomid = np.empty((self.points_per_frame, 1), dtype=np.int32)
+            self._multi_dist = np.empty((self.points_per_frame, 1), dtype=np.float64)
+        else:
+            self._mjray_geomid_out = np.zeros((1,), dtype=np.int32)
+
+        self._stats = self._new_stats()
+
+    @staticmethod
+    def _new_stats() -> dict:
+        return {
+            "steps": 0,
+            "sim_time_s": 0.0,
+            "frames_emitted": 0,
+            "rays_cast": 0,
+            "points_kept": 0,
+            "pack_calls": 0,
+            "t_sample_s": 0.0,
+            "t_transform_s": 0.0,
+            "t_raycast_s": 0.0,
+            "t_postprocess_s": 0.0,
+            "t_pack_s": 0.0,
+        }
 
     @staticmethod
     def _rot_x(a):
@@ -106,60 +148,48 @@ class LivoxMid360Sim:
         return cls._rot_z(yaw) @ cls._rot_y(pitch) @ cls._rot_x(roll)
     
 
-    def _sample_dirs_lidar(self, n: int) -> np.ndarray:
+    def _sample_dirs_lidar(self, n: int, out_dirs: np.ndarray) -> None:
         """
         Sample ray directions in the LiDAR local frame.
         Horizontal: [0, 2pi)
         Vertical: [vmin, vmax]
-        Return unit vectors (n,3).
+        Writes unit vectors to out_dirs with shape (n,3).
         """
         az = self.rng.uniform(0.0, 2.0 * math.pi, size=n)
         el = self.rng.uniform(self.vmin, self.vmax, size=n)
 
         # Convention: x forward, y left, z up in the LiDAR local frame
         ce = np.cos(el)
-        dirs = np.stack([
-            ce * np.cos(az),
-            ce * np.sin(az),
-            np.sin(el),
-        ], axis=1).astype(np.float64)
-
-        # Normalize for safety
-        dirs /= np.linalg.norm(dirs, axis=1, keepdims=True)
-        return dirs
+        out_dirs[:, 0] = ce * np.cos(az)
+        out_dirs[:, 1] = ce * np.sin(az)
+        out_dirs[:, 2] = np.sin(el)
 
     def _lidar_pose_world(self, data: mujoco.MjData):
         """
         Returns (pos_world (3,), R_world_lidar (3,3))
         site_xmat is row-major 9 elements representing rotation from site->world.
         """
-        pos = data.site_xpos[self.site_id].copy()
-        xmat = data.site_xmat[self.site_id].reshape(3, 3).copy()  # site->world
+        pos = data.site_xpos[self.site_id]
+        xmat = data.site_xmat[self.site_id].reshape(3, 3)  # site->world
         return pos, xmat
-    def _cast_rays(self, data: mujoco.MjData, dirs_world: np.ndarray) -> np.ndarray:
+
+    def _cast_rays(self, data: mujoco.MjData, dirs_world: np.ndarray, n: int) -> np.ndarray:
         """
         Cast rays and return distances (n,). -1 means no hit.
         Uses mj_multiRay if available (fast), otherwise loops mj_ray.
         """
+        self._pnt[:, 0] = data.site_xpos[self.site_id]
 
-        pnt, _ = self._lidar_pose_world(data)
-        pnt = np.asarray(pnt, dtype=np.float64).reshape(3, 1)  # (3,1) per binding
-
-        n = int(dirs_world.shape[0])
-
-        # Try mj_multiRay first (fast)
-        if hasattr(mujoco, "mj_multiRay"):
-            # vec must be flattened to (3*n, 1) in this binding
-            vec = np.asarray(dirs_world, dtype=np.float64).reshape(3 * n, 1)
-
-            # outputs must be (n,1) and writeable
-            geomid = np.empty((n, 1), dtype=np.int32)
-            dist = np.full((n, 1), -1.0, dtype=np.float64)
-
+        if self._has_multi_ray:
+            vec = self._vec[: 3 * n]
+            geomid = self._multi_geomid[:n]
+            dist = self._multi_dist[:n]
+            vec[:, 0] = dirs_world[:n].reshape(3 * n)
+            dist[:, 0].fill(-1.0)
             mujoco.mj_multiRay(
                 self.m,
                 data,
-                pnt,
+                self._pnt,
                 vec,
                 None,          # geomgroup
                 1,             # flg_static
@@ -169,63 +199,124 @@ class LivoxMid360Sim:
                 n,
                 float(self.range_max),
             )
-            return dist[:, 0].copy()
+            return dist[:, 0]
 
-        # Fallback: loop mj_ray (slower)
-        dists = np.full((n,), -1.0, dtype=np.float64)
-        geomid_out = np.zeros((1,), dtype=np.int32)
-        pnt_flat = pnt[:, 0]  # mj_ray expects (3,) vector
+        if not self._warned_mj_ray_fallback and self.effective_points_per_second >= 5_000:
+            warn(
+                "LivoxMid360Sim is using mj_ray fallback without mj_multiRay at a high effective point rate; "
+                "performance may degrade significantly."
+            )
+            self._warned_mj_ray_fallback = True
+
+        dists = self._dists[:n]
+        dists.fill(-1.0)
+        pnt_flat = self._pnt[:, 0]
         for i in range(n):
-            dist = mujoco.mj_ray(self.m, data, pnt_flat, dirs_world[i], None, 1, -1, geomid_out)
-            dists[i] = float(dist)
+            dists[i] = float(
+                mujoco.mj_ray(self.m, data, pnt_flat, dirs_world[i], None, 1, -1, self._mjray_geomid_out)
+            )
         return dists
 
+    def record_pack_time(self, seconds: float) -> None:
+        dt = float(seconds)
+        if dt > 0.0:
+            self._stats["t_pack_s"] += dt
+            self._stats["pack_calls"] += 1
+
+    def get_stats(self, reset: bool = False) -> dict:
+        stats = dict(self._stats)
+        sim_time = max(float(stats["sim_time_s"]), 1e-9)
+        frame_count = int(stats["frames_emitted"])
+        frame_denom = max(frame_count, 1)
+
+        stats["effective_points_per_second"] = self.effective_points_per_second
+        stats["points_per_frame_limit"] = self.points_per_frame
+        stats["rays_per_sec"] = float(stats["rays_cast"]) / sim_time
+        stats["points_per_sec"] = float(stats["points_kept"]) / sim_time
+        stats["points_per_frame_avg"] = float(stats["points_kept"]) / frame_denom
+        stats["sample_ms_per_frame"] = 1e3 * float(stats["t_sample_s"]) / frame_denom
+        stats["transform_ms_per_frame"] = 1e3 * float(stats["t_transform_s"]) / frame_denom
+        stats["raycast_ms_per_frame"] = 1e3 * float(stats["t_raycast_s"]) / frame_denom
+        stats["postprocess_ms_per_frame"] = 1e3 * float(stats["t_postprocess_s"]) / frame_denom
+        stats["pack_ms_per_frame"] = 1e3 * float(stats["t_pack_s"]) / frame_denom
+
+        if reset:
+            self._stats = self._new_stats()
+
+        return stats
+
     def step(self, data: mujoco.MjData, dt: float) -> np.ndarray | None:
-        self._accum_t += float(dt)
+        dt = float(dt)
+        self._stats["steps"] += 1
+        self._stats["sim_time_s"] += dt
+        self._accum_t += dt
 
-        # refresh directions (non-repetitive-ish)
-        self._dirs_lidar = self._sample_dirs_lidar(self.points_per_frame)
+        # Continuous budgeted raycasting (balanced speed/fidelity).
+        self._point_budget += self.effective_points_per_second * dt
+        rays_to_cast = int(self._point_budget)
+        if rays_to_cast > self.points_per_frame:
+            rays_to_cast = self.points_per_frame
+        if rays_to_cast > 0:
+            self._point_budget -= rays_to_cast
 
-        pos_w, R_w_site = self._lidar_pose_world(data)  # site->world
+            t0 = time.perf_counter()
+            dirs_sensor = self._dirs_sensor[:rays_to_cast]
+            self._sample_dirs_lidar(rays_to_cast, dirs_sensor)
+            self._stats["t_sample_s"] += time.perf_counter() - t0
 
-        # SENSOR -> SITE using mount rotation
-        dirs_sensor = self._dirs_lidar                              # (N,3)
-        dirs_site   = (self.R_site_sensor @ dirs_sensor.T).T        # (N,3)
+            t0 = time.perf_counter()
+            pos_w, R_w_site = self._lidar_pose_world(data)  # site->world
+            dirs_site = self._dirs_site[:rays_to_cast]
+            dirs_world = self._dirs_world[:rays_to_cast]
+            np.matmul(dirs_sensor, self.R_site_sensor.T, out=dirs_site)
+            np.matmul(dirs_site, R_w_site.T, out=dirs_world)
+            self._stats["t_transform_s"] += time.perf_counter() - t0
 
-        # SITE -> WORLD using live site orientation
-        dirs_w = (R_w_site @ dirs_site.T).T                         # (N,3)
+            t0 = time.perf_counter()
+            dists = self._cast_rays(data, dirs_world, rays_to_cast)
+            self._stats["t_raycast_s"] += time.perf_counter() - t0
+            self._stats["rays_cast"] += rays_to_cast
 
-        dists = self._cast_rays(data, dirs_w)
+            t0 = time.perf_counter()
+            if self.dropout_prob > 0.0:
+                drop = self.rng.random(rays_to_cast) < self.dropout_prob
+                dists[drop] = -1.0
 
-        # dropout + noise + clamp
-        if self.dropout_prob > 0.0:
-            drop = self.rng.random(dists.shape[0]) < self.dropout_prob
-            dists[drop] = -1.0
+            hit_idx = np.flatnonzero(dists >= 0.0)
+            n_hit = int(hit_idx.shape[0])
+            if n_hit > 0:
+                dists_hit = self._tmp_dists[:n_hit]
+                dists_hit[:] = dists[hit_idx]
+                if self.range_noise_sigma > 0.0:
+                    dists_hit += self.rng.normal(0.0, self.range_noise_sigma, size=n_hit)
+                np.clip(dists_hit, self.range_min, self.range_max, out=dists_hit)
 
-        hit = dists >= 0.0
-        dists_hit = dists[hit].copy()
-        dists_hit += self.rng.normal(0.0, self.range_noise_sigma, size=dists_hit.shape[0])
-        dists_hit = np.clip(dists_hit, self.range_min, self.range_max)
+                pts = self._tmp_points[:n_hit]
+                if self.output_frame == "sensor":
+                    np.multiply(dirs_sensor[hit_idx], dists_hit[:, None], out=pts)
+                elif self.output_frame == "site":
+                    np.multiply(dirs_site[hit_idx], dists_hit[:, None], out=pts)
+                else:  # "world"
+                    np.multiply(dirs_world[hit_idx], dists_hit[:, None], out=pts)
+                    pts += pos_w[None, :]
 
-        # Compute points in desired frame
-        if self.output_frame == "sensor":
-            # points in sensor intrinsic frame (like a real driver would publish)
-            pts = dirs_sensor[hit] * dists_hit[:, None]
+                free_slots = self.points_per_frame - self._frame_count
+                if free_slots > 0:
+                    take = min(free_slots, n_hit)
+                    self._frame_points[self._frame_count : self._frame_count + take] = pts[:take]
+                    self._frame_count += take
+                    self._stats["points_kept"] += take
 
-        elif self.output_frame == "site":
-            # points in MJCF site frame (mount applied)
-            pts = dirs_site[hit] * dists_hit[:, None]
-
-        else:  # "world"
-            # world hit points (best for visualization)
-            pts = pos_w[None, :] + dirs_w[hit] * dists_hit[:, None]
-
-        self._accum_points.append(pts)
+            self._stats["t_postprocess_s"] += time.perf_counter() - t0
 
         if self._accum_t >= self._frame_dt:
             self._accum_t -= self._frame_dt
-            cloud = np.concatenate(self._accum_points, axis=0) if self._accum_points else np.zeros((0, 3), dtype=np.float64)
-            self._accum_points.clear()
+            self._stats["frames_emitted"] += 1
+            if self._frame_count > 0:
+                cloud = self._frame_points[: self._frame_count].copy()
+            else:
+                cloud = np.zeros((0, 3), dtype=np.float64)
+            self._frame_count = 0
             return cloud
 
         return None
