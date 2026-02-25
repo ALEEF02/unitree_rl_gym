@@ -1,156 +1,434 @@
-<mujoco model="g1 scene">
-  <include file="g1_12dof.xml"/>
-
-  <statistic center="1.0 0.7 1.0" extent="0.8"/>
-
+<mujoco model="g1 narhouse scene">
+  <include file="g1_12dof.xml" />
+  <statistic center="1.0 0.7 1.0" extent="30" />
   <visual>
-    <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0.9 0.9 0.9"/>
-    <rgba haze="0.15 0.25 0.35 1"/>
-    <global azimuth="-140" elevation="-20"/>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0.9 0.9 0.9" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <global azimuth="-140" elevation="-20" />
   </visual>
-
   <asset>
-    <texture type="skybox" builtin="flat" rgb1="0 0 0" rgb2="0 0 0" width="512" height="3072"/>
-    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
-    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+    <mesh name="mesh_0" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mj.obj" inertia="shell" />
+    <mesh name="mesh_1" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_colision.stl" inertia="shell" />
+    <mesh name="mesh_2" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf_big/meshes/shelf_big_movai_mj.obj" inertia="shell" />
+    <mesh name="mesh_3" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf/meshes/shelf_big_movai_mj.obj" scale="0.2 0.3 0.3" inertia="shell" />
+    <mesh name="mesh_4" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Jersey Barrier/meshes/jersey_barrier_mj.obj" inertia="shell" />
+    <mesh name="mesh_5" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Chair/meshes/Chair.obj" scale="0.00817 0.00817 0.00817" inertia="shell" />
+    <mesh name="mesh_6" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/foldable_chair/mesh/foldable_chair_mj.obj" scale="0.1 0.1 0.1" inertia="shell" />
+    <mesh name="mesh_7" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic.obj" inertia="shell" />
+    <mesh name="mesh_8" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_Col.obj" inertia="shell" />
+    <mesh name="mesh_9" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mj.obj" inertia="shell" />
+    <mesh name="mesh_10" file="../../../scenes/narhouse_fuel/converted/openrobotics/Cardboard box/meshes/cardboard_box.obj" scale="1.25931896 1.007455168 0.755591376" inertia="shell" />
+    <mesh name="mesh_11" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/KitchenCountertop/meshes/KitchenCountertop.obj" inertia="shell" />
+    <mesh name="mesh_12" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Fridge/meshes/Fridge.obj" inertia="shell" />
+    <mesh name="mesh_13" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Fridge/meshes/Fridge_Col.obj" inertia="shell" />
+    <material name="mat_0" rgba="1 0.5 0 1" />
+    <mesh name="mesh_0__material" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material.obj" inertia="shell" />
+    <material name="mat__mesh_0__material" rgba="0.8 0.186572 0.0443581 1" />
+    <mesh name="mesh_0__tape001_1k_color" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_tape001_1k_color.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_0__tape001_1k_color" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/Tape001_1K_Color.png" />
+    <material name="mat__mesh_0__tape001_1k_color" texture="tex__mesh_0__tape001_1k_color" />
+    <mesh name="mesh_0__tape001_1k_color_001" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_tape001_1k_color_001.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_0__tape001_1k_color_001" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/Tape001_1K_Color.png" />
+    <material name="mat__mesh_0__tape001_1k_color_001" texture="tex__mesh_0__tape001_1k_color_001" />
+    <mesh name="mesh_0__tape001_1k_color_002" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_tape001_1k_color_002.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_0__tape001_1k_color_002" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/Tape001_1K_Color.png" />
+    <material name="mat__mesh_0__tape001_1k_color_002" texture="tex__mesh_0__tape001_1k_color_002" />
+    <mesh name="mesh_0__asphalt" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_asphalt.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_0__asphalt" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/Asphalt010_1K_Color.png" />
+    <material name="mat__mesh_0__asphalt" texture="tex__mesh_0__asphalt" />
+    <mesh name="mesh_0__ground" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_ground.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_0__ground" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/Terrazzo005_1K_Color.png" />
+    <material name="mat__mesh_0__ground" texture="tex__mesh_0__ground" />
+    <mesh name="mesh_0__top" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_top.obj" inertia="shell" />
+    <material name="mat__mesh_0__top" rgba="0.0236505 0.0223954 0.0229449 1" />
+    <mesh name="mesh_0__wall" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_wall.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_0" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_0.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_1" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_1.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_10" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_10.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_11" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_11.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_12" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_12.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_13" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_13.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_14" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_14.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_2" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_2.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_3" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_3.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_4" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_4.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_5" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_5.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_6" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_6.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_7" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_7.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_8" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_8.obj" inertia="shell" />
+    <mesh name="mesh_0__material_col_9" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_material_colcomp_9.obj" inertia="shell" />
+    <mesh name="mesh_0__wall_col_0" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_wall_colcomp_0.obj" inertia="shell" />
+    <mesh name="mesh_0__wall_col_1" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_wall_colcomp_1.obj" inertia="shell" />
+    <mesh name="mesh_0__wall_col_2" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_wall_colcomp_2.obj" inertia="shell" />
+    <mesh name="mesh_0__wall_col_3" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_wall_colcomp_3.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_0__wall" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/Rough_Square_Concrete_Block.png" />
+    <material name="mat__mesh_0__wall" texture="tex__mesh_0__wall" />
+    <mesh name="mesh_10__cardboardboxes" file="../../../scenes/narhouse_fuel/converted/openrobotics/Cardboard box/meshes/cardboard_box_mjmat_cardboardboxes.obj" scale="1.25931896 1.007455168 0.755591376" inertia="shell" />
+    <texture type="2d" name="tex__mesh_10__cardboardboxes" file="../../scenes/narhouse_fuel/converted/openrobotics/Cardboard box/materials/textures/cardboard_box.png" />
+    <material name="mat__mesh_10__cardboardboxes" texture="tex__mesh_10__cardboardboxes" />
+    <mesh name="mesh_11__kitchencountertop" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/KitchenCountertop/meshes/KitchenCountertop_mjmat_kitchencountertop.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_11__kitchencountertop" file="../../scenes/narhouse_fuel/converted/OpenRobotics/KitchenCountertop/meshes/KitchenCountertop_Diffuse.png" />
+    <material name="mat__mesh_11__kitchencountertop" texture="tex__mesh_11__kitchencountertop" />
+    <mesh name="mesh_12__fridge" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Fridge/meshes/Fridge_mjmat_fridge.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_12__fridge" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Fridge/meshes/Fridge_Diffuse.png" />
+    <material name="mat__mesh_12__fridge" texture="tex__mesh_12__fridge" />
+    <mesh name="mesh_2__material_001" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf_big/meshes/shelf_big_movai_mjmat_material_001.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_2__material_001" file="../../scenes/narhouse_fuel/converted/MovAi/shelf_big/meshes/Box_paper_04_1_Base_Color.png" />
+    <material name="mat__mesh_2__material_001" texture="tex__mesh_2__material_001" />
+    <mesh name="mesh_2__material_011" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf_big/meshes/shelf_big_movai_mjmat_material_011.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_2__material_011" file="../../scenes/narhouse_fuel/converted/MovAi/shelf_big/meshes/Box_paper_04_1_Base_Color.png" />
+    <material name="mat__mesh_2__material_011" texture="tex__mesh_2__material_011" />
+    <mesh name="mesh_2__board" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf_big/meshes/shelf_big_movai_mjmat_board.obj" inertia="shell" />
+    <material name="mat__mesh_2__board" rgba="0.8 0.682067 0.057408 1" />
+    <mesh name="mesh_2__metal_black" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf_big/meshes/shelf_big_movai_mjmat_metal_black.obj" inertia="shell" />
+    <material name="mat__mesh_2__metal_black" rgba="0.0100216 0.0100216 0.0100216 1" />
+    <mesh name="mesh_3__material_001" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf/meshes/shelf_big_movai_mjmat_material_001.obj" scale="0.2 0.3 0.3" inertia="shell" />
+    <texture type="2d" name="tex__mesh_3__material_001" file="../../scenes/narhouse_fuel/converted/MovAi/shelf/meshes/Box_paper_04_1_Base_Color.png" />
+    <material name="mat__mesh_3__material_001" texture="tex__mesh_3__material_001" />
+    <mesh name="mesh_3__material_011" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf/meshes/shelf_big_movai_mjmat_material_011.obj" scale="0.2 0.3 0.3" inertia="shell" />
+    <texture type="2d" name="tex__mesh_3__material_011" file="../../scenes/narhouse_fuel/converted/MovAi/shelf/meshes/Box_paper_04_1_Base_Color.png" />
+    <material name="mat__mesh_3__material_011" texture="tex__mesh_3__material_011" />
+    <mesh name="mesh_3__board" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf/meshes/shelf_big_movai_mjmat_board.obj" scale="0.2 0.3 0.3" inertia="shell" />
+    <material name="mat__mesh_3__board" rgba="0.8 0.682067 0.057408 1" />
+    <mesh name="mesh_3__metal_black" file="../../../scenes/narhouse_fuel/converted/MovAi/shelf/meshes/shelf_big_movai_mjmat_metal_black.obj" scale="0.2 0.3 0.3" inertia="shell" />
+    <material name="mat__mesh_3__metal_black" rgba="0.0100216 0.0100216 0.0100216 1" />
+    <mesh name="mesh_4__barrier" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Jersey Barrier/meshes/jersey_barrier_mjmat_barrier.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_4__barrier" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Jersey Barrier/materials/textures/jersey_barrier_diffuse.png" />
+    <material name="mat__mesh_4__barrier" texture="tex__mesh_4__barrier" />
+    <mesh name="mesh_5__chair" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Chair/meshes/Chair_mjmat_chair.obj" scale="0.00817 0.00817 0.00817" inertia="shell" />
+    <texture type="2d" name="tex__mesh_5__chair" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Chair/meshes/Chair_Diffuse.png" />
+    <material name="mat__mesh_5__chair" texture="tex__mesh_5__chair" />
+    <mesh name="mesh_6__chair" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/foldable_chair/mesh/foldable_chair_mjmat_chair.obj" scale="0.1 0.1 0.1" inertia="shell" />
+    <texture type="2d" name="tex__mesh_6__chair" file="../../scenes/narhouse_fuel/converted/OpenRobotics/foldable_chair/mesh/foldable_chair.png" />
+    <material name="mat__mesh_6__chair" texture="tex__mesh_6__chair" />
+    <mesh name="mesh_7__malevisitor" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_mjmat_malevisitor.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_7__malevisitor" file="../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitor.png" />
+    <material name="mat__mesh_7__malevisitor" texture="tex__mesh_7__malevisitor" />
+    <mesh name="mesh_7__phone" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_mjmat_phone.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_7__phone" file="../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/Phone.png" />
+    <material name="mat__mesh_7__phone" texture="tex__mesh_7__phone" />
+    <mesh name="mesh_9__eye_brown" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mjmat_eye_brown.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_9__eye_brown" file="../../scenes/narhouse_fuel/converted/plateau/Casual female/materials/textures/brown_eye.png" />
+    <material name="mat__mesh_9__eye_brown" texture="tex__mesh_9__eye_brown" />
+    <mesh name="mesh_9__shoes05" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mjmat_shoes05.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_9__shoes05" file="../../scenes/narhouse_fuel/converted/plateau/Casual female/materials/textures/shoes05_diffuse.png" />
+    <material name="mat__mesh_9__shoes05" texture="tex__mesh_9__shoes05" />
+    <mesh name="mesh_9__bodymaterial" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mjmat_bodymaterial.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_9__bodymaterial" file="../../scenes/narhouse_fuel/converted/plateau/Casual female/materials/textures/eyelashes01.png" />
+    <material name="mat__mesh_9__bodymaterial" texture="tex__mesh_9__bodymaterial" />
+    <mesh name="mesh_9__eyebrow002" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mjmat_eyebrow002.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_9__eyebrow002" file="../../scenes/narhouse_fuel/converted/plateau/Casual female/materials/textures/eyebrow002.png" />
+    <material name="mat__mesh_9__eyebrow002" texture="tex__mesh_9__eyebrow002" />
+    <mesh name="mesh_9__female_casualsuit01" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mjmat_female_casualsuit01.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_9__female_casualsuit01" file="../../scenes/narhouse_fuel/converted/plateau/Casual female/materials/textures/female_casualsuit01_diffuse.png" />
+    <material name="mat__mesh_9__female_casualsuit01" texture="tex__mesh_9__female_casualsuit01" />
+    <mesh name="mesh_9__female_casualsuit02" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mjmat_female_casualsuit02.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_9__female_casualsuit02" file="../../scenes/narhouse_fuel/converted/plateau/Casual female/materials/textures/female_casualsuit02_diffuse.png" />
+    <material name="mat__mesh_9__female_casualsuit02" texture="tex__mesh_9__female_casualsuit02" />
+    <mesh name="mesh_9__ponytail01" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mjmat_ponytail01.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_9__ponytail01" file="../../scenes/narhouse_fuel/converted/plateau/Casual female/materials/textures/ponytail01_diffuse.png" />
+    <material name="mat__mesh_9__ponytail01" texture="tex__mesh_9__ponytail01" />
+    <mesh name="mesh_9__tongue01material" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mjmat_tongue01material.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_9__tongue01material" file="../../scenes/narhouse_fuel/converted/plateau/Casual female/materials/textures/tongue01_diffuse.png" />
+    <material name="mat__mesh_9__tongue01material" texture="tex__mesh_9__tongue01material" />
+    <mesh name="mesh_9__young_caucasian_female" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mjmat_young_caucasian_female.obj" inertia="shell" />
+    <texture type="2d" name="tex__mesh_9__young_caucasian_female" file="../../scenes/narhouse_fuel/converted/plateau/Casual female/materials/textures/young_lightskinned_female_diffuse.png" />
+    <material name="mat__mesh_9__young_caucasian_female" texture="tex__mesh_9__young_caucasian_female" />
   </asset>
-  
-  <asset>
-    <!-- Materials -->
-    <material name="mat_wood" rgba="0.55 0.36 0.20 1" specular="0.25" shininess="0.25"/>
-    <material name="mat_plastic_black" rgba="0.04 0.04 0.05 1" specular="0.25" shininess="0.15"/>
-    <material name="mat_rubber" rgba="0.08 0.08 0.08 1" specular="0.05" shininess="0.05"/>
-    <material name="mat_stainless" rgba="0.72 0.75 0.78 1" specular="0.9" shininess="0.8"/>
-    <material name="mat_enamel_white" rgba="0.94 0.95 0.97 1" specular="0.35" shininess="0.6"/>
-    <material name="mat_enamel_black" rgba="0.10 0.10 0.12 1" specular="0.30" shininess="0.35"/>
-    <material name="mat_glass" rgba="0.20 0.20 0.22 0.25" specular="0.9" shininess="0.9"/>
-  </asset>
-
-
   <worldbody>
-    <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
-    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
-    
-        <!-- Static wall -->
-    <body name="wall" pos="1.6 0 0.5">
-      <geom name="wall_geom" type="box" size="0.05 1.0 1.0" rgba="0.7 0.7 0.7 1"
-            contype="1" conaffinity="1"/>
-    </body>
-    
-    <body name="desk" pos="-5 0 0">
-      <!-- tabletop -->
-      <geom type="box" pos="0 0 0.75" size="0.6 0.3 0.03" rgba="0.6 0.4 0.2 1"/>
-      <!-- legs -->
-      <geom type="box" pos="0.55 0.25 0.375" size="0.03 0.03 0.375"/>
-      <geom type="box" pos="-0.55 0.25 0.375" size="0.03 0.03 0.375"/>
-      <geom type="box" pos="0.55 -0.25 0.375" size="0.03 0.03 0.375"/>
-      <geom type="box" pos="-0.55 -0.25 0.375" size="0.03 0.03 0.375"/>
-    </body>
-    
-    <body name="chair" pos="-4.8 -0.7 0">
-      <!-- Seat -->
-      <geom name="chair_seat" type="box" pos="0 0 0.46" size="0.22 0.22 0.03"
-            material="mat_wood" contype="1" conaffinity="1" friction="1 0.01 0.001"/>
-
-      <!-- Backrest -->
-      <geom name="chair_back" type="box" pos="-0.19 0 0.72" size="0.03 0.22 0.24"
-            material="mat_wood" contype="1" conaffinity="1"/>
-
-      <!-- Legs -->
-      <geom name="chair_leg_fl" type="cylinder" pos="0.18 0.18 0.23" size="0.02 0.23"
-            material="mat_enamel_black" contype="1" conaffinity="1"/>
-      <geom name="chair_leg_fr" type="cylinder" pos="0.18 -0.18 0.23" size="0.02 0.23"
-            material="mat_enamel_black" contype="1" conaffinity="1"/>
-      <geom name="chair_leg_bl" type="cylinder" pos="-0.18 0.18 0.23" size="0.02 0.23"
-            material="mat_enamel_black" contype="1" conaffinity="1"/>
-      <geom name="chair_leg_br" type="cylinder" pos="-0.18 -0.18 0.23" size="0.02 0.23"
-            material="mat_enamel_black" contype="1" conaffinity="1"/>
-
-      <!-- Foot pads -->
-      <geom name="chair_foot_fl" type="sphere" pos="0.18 0.18 0.01" size="0.025" material="mat_rubber"/>
-      <geom name="chair_foot_fr" type="sphere" pos="0.18 -0.18 0.01" size="0.025" material="mat_rubber"/>
-      <geom name="chair_foot_bl" type="sphere" pos="-0.18 0.18 0.01" size="0.025" material="mat_rubber"/>
-      <geom name="chair_foot_br" type="sphere" pos="-0.18 -0.18 0.01" size="0.025" material="mat_rubber"/>
-    </body>
-
-    <body name="fridge" pos="-4.5 0.85 0">
-      <!-- Main carcass -->
-      <geom name="fridge_body" type="box" pos="0 0 0.90" size="0.32 0.35 0.90"
-            material="mat_enamel_white" contype="1" conaffinity="1" friction="1 0.01 0.001"/>
-
-      <!-- Small feet -->
-      <geom type="cylinder" pos="0.25 0.28 0.03" size="0.02 0.03" material="mat_rubber"/>
-      <geom type="cylinder" pos="0.25 -0.28 0.03" size="0.02 0.03" material="mat_rubber"/>
-      <geom type="cylinder" pos="-0.25 0.28 0.03" size="0.02 0.03" material="mat_rubber"/>
-      <geom type="cylinder" pos="-0.25 -0.28 0.03" size="0.02 0.03" material="mat_rubber"/>
-
-      <!-- Door: hinge on the left side (rotate about z) -->
-      <body name="fridge_door" pos="0 0 0">
-        <joint name="fridge_door_hinge" type="hinge" pos="-0.32 0 0.90" axis="0 0 1"
-               limited="true" range="0 1.35" damping="2"/>
-
-        <!-- Door slab -->
-        <geom name="fridge_door_geom" type="box" pos="0.33 0 0.90" size="0.03 0.345 0.88"
-              material="mat_enamel_white" contype="1" conaffinity="1"/>
-
-        <!-- Door gasket seam (thin darker strip) -->
-        <geom name="fridge_door_seam" type="box" pos="0.30 0 0.90" size="0.004 0.345 0.88"
-              material="mat_enamel_black" contype="0" conaffinity="0"/>
-
-        <!-- Handle -->
-        <geom name="fridge_handle" type="capsule" fromto="0.40 0.18 0.70  0.40 0.18 1.40"
-              size="0.015" material="mat_stainless" contype="0" conaffinity="0"/>
-      </body>
-
-      <!-- Optional: freezer line (visual divider) -->
-      <geom name="fridge_divider" type="box" pos="0.32 0 1.30" size="0.002 0.345 0.002"
-            material="mat_enamel_black" contype="0" conaffinity="0"/>
-    </body>
-
-    <body name="stove" pos="-4.5 1.6 0">
-      <!-- Main body -->
-      <geom name="stove_body" type="box" pos="0 0 0.45" size="0.35 0.32 0.45"
-            material="mat_stainless" contype="1" conaffinity="1" friction="1 0.01 0.001"/>
-
-      <!-- Cooktop -->
-      <geom name="stove_top" type="box" pos="0 0 0.92" size="0.36 0.33 0.02"
-            material="mat_enamel_black" contype="1" conaffinity="1"/>
-
-      <!-- Burners (4 discs) -->
-      <geom name="burner_fl" type="cylinder" pos="0.16 0.16 0.94" size="0.07 0.01" material="mat_enamel_black"/>
-      <geom name="burner_fr" type="cylinder" pos="0.16 -0.16 0.94" size="0.07 0.01" material="mat_enamel_black"/>
-      <geom name="burner_bl" type="cylinder" pos="-0.16 0.16 0.94" size="0.06 0.01" material="mat_enamel_black"/>
-      <geom name="burner_br" type="cylinder" pos="-0.16 -0.16 0.94" size="0.06 0.01" material="mat_enamel_black"/>
-
-      <!-- Knob panel -->
-      <geom name="stove_knob_panel" type="box" pos="0.28 0 0.80" size="0.03 0.30 0.08"
-            material="mat_stainless" contype="1" conaffinity="1"/>
-
-      <!-- Knobs -->
-      <geom type="cylinder" pos="0.33 0.18 0.82" size="0.02 0.015" material="mat_plastic_black"/>
-      <geom type="cylinder" pos="0.33 0.06 0.82" size="0.02 0.015" material="mat_plastic_black"/>
-      <geom type="cylinder" pos="0.33 -0.06 0.82" size="0.02 0.015" material="mat_plastic_black"/>
-      <geom type="cylinder" pos="0.33 -0.18 0.82" size="0.02 0.015" material="mat_plastic_black"/>
-
-      <!-- Oven door (hinged at bottom) -->
-      <body name="oven_door" pos="0 0 0">
-        <joint name="oven_door_hinge" type="hinge" pos="0.35 0 0.12" axis="0 1 0"
-               limited="true" range="0 1.20" damping="2"/>
-
-        <!-- Door slab -->
-        <geom name="oven_door_geom" type="box" pos="0.33 0 0.36" size="0.02 0.30 0.30"
-              material="mat_stainless" contype="1" conaffinity="1"/>
-
-        <!-- Glass window -->
-        <geom name="oven_glass" type="box" pos="0.31 0 0.36" size="0.003 0.22 0.16"
-              material="mat_glass" contype="0" conaffinity="0"/>
-
-        <!-- Handle -->
-        <geom name="oven_handle" type="capsule" fromto="0.37 -0.22 0.58  0.37 0.22 0.58"
-              size="0.012" material="mat_stainless" contype="0" conaffinity="0"/>
+    <light pos="1 0 3.5" dir="0 0 -1" directional="true" />
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+    <body name="warehouse" pos="0 0 -0.098" euler="0 -0 0">
+      <body name="warehouse__warehouse_base" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_0__material" material="mat__mesh_0__material" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_0__tape001_1k_color" material="mat__mesh_0__tape001_1k_color" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_0__tape001_1k_color_001" material="mat__mesh_0__tape001_1k_color_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_0__tape001_1k_color_002" material="mat__mesh_0__tape001_1k_color_002" />
+        <geom type="mesh" pos="0 0 0.099" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_0__asphalt" material="mat__mesh_0__asphalt" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_0__ground" material="mat__mesh_0__ground" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_0__top" material="mat__mesh_0__top" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_0__wall" material="mat__mesh_0__wall" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_0" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_1" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_10" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_11" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_12" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_13" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_14" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_2" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_3" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_4" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_5" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_6" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_7" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_8" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__material_col_9" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__wall_col_0" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__wall_col_1" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__wall_col_2" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_0__wall_col_3" />
       </body>
     </body>
-
-
+    <body name="shelf_big_0" pos="-8.5 -13 0" euler="0 -0 0">
+      <body name="shelf_big_0__shelf_big_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_001" material="mat__mesh_2__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_011" material="mat__mesh_2__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__board" material="mat__mesh_2__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__metal_black" material="mat__mesh_2__metal_black" />
+        <geom type="box" size="1.05 9 3" pos="0 0 3" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_big_1" pos="6.5 -13 0" euler="0 -0 0">
+      <body name="shelf_big_1__shelf_big_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_001" material="mat__mesh_2__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_011" material="mat__mesh_2__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__board" material="mat__mesh_2__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__metal_black" material="mat__mesh_2__metal_black" />
+        <geom type="box" size="1.05 9 3" pos="0 0 3" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_big_2" pos="-1.5 -13 0" euler="0 -0 0">
+      <body name="shelf_big_2__shelf_big_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_001" material="mat__mesh_2__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_011" material="mat__mesh_2__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__board" material="mat__mesh_2__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__metal_black" material="mat__mesh_2__metal_black" />
+        <geom type="box" size="1.05 9 3" pos="0 0 3" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_3" pos="13.5 4.5 0" euler="0 -0 0">
+      <body name="shelf_3__shelf_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_001" material="mat__mesh_3__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_011" material="mat__mesh_3__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__board" material="mat__mesh_3__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__metal_black" material="mat__mesh_3__metal_black" />
+        <geom type="box" size="1.8 0.3 0.9" pos="0 0 0.9" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_4" pos="10 4.5 0" euler="0 -0 0">
+      <body name="shelf_4__shelf_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_001" material="mat__mesh_3__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_011" material="mat__mesh_3__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__board" material="mat__mesh_3__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__metal_black" material="mat__mesh_3__metal_black" />
+        <geom type="box" size="1.8 0.3 0.9" pos="0 0 0.9" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_5" pos="13.5 -21 0" euler="0 -0 0">
+      <body name="shelf_5__shelf_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_001" material="mat__mesh_3__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_011" material="mat__mesh_3__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__board" material="mat__mesh_3__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__metal_black" material="mat__mesh_3__metal_black" />
+        <geom type="box" size="1.8 0.3 0.9" pos="0 0 0.9" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_6" pos="13.5 -15 0" euler="0 -0 0">
+      <body name="shelf_6__shelf_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_001" material="mat__mesh_3__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_011" material="mat__mesh_3__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__board" material="mat__mesh_3__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__metal_black" material="mat__mesh_3__metal_black" />
+        <geom type="box" size="1.8 0.3 0.9" pos="0 0 0.9" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_7" pos="0.4 -2 0" euler="0 -0 0">
+      <body name="shelf_7__shelf_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_001" material="mat__mesh_3__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_011" material="mat__mesh_3__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__board" material="mat__mesh_3__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__metal_black" material="mat__mesh_3__metal_black" />
+        <geom type="box" size="1.8 0.3 0.9" pos="0 0 0.9" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_big_3" pos="3.5 9.5 0" euler="0 -0 1.57">
+      <body name="shelf_big_3__shelf_big_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_001" material="mat__mesh_2__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_011" material="mat__mesh_2__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__board" material="mat__mesh_2__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__metal_black" material="mat__mesh_2__metal_black" />
+        <geom type="box" size="1.05 9 3" pos="0 0 3" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_big_4" pos="-1.3 18.5 0" euler="0 -0 1.57">
+      <body name="shelf_big_4__shelf_big_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_001" material="mat__mesh_2__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__material_011" material="mat__mesh_2__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__board" material="mat__mesh_2__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 1.5707963268 0" contype="0" conaffinity="0" group="0" mesh="mesh_2__metal_black" material="mat__mesh_2__metal_black" />
+        <geom type="box" size="1.05 9 3" pos="0 0 3" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_0" pos="-10 21.5 0" euler="0 -0 1.57">
+      <body name="shelf_0__shelf_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_001" material="mat__mesh_3__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_011" material="mat__mesh_3__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__board" material="mat__mesh_3__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__metal_black" material="mat__mesh_3__metal_black" />
+        <geom type="box" size="1.8 0.3 0.9" pos="0 0 0.9" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_1" pos="-7 23.6 0" euler="0 -0 1.57">
+      <body name="shelf_1__shelf_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_001" material="mat__mesh_3__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_011" material="mat__mesh_3__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__board" material="mat__mesh_3__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__metal_black" material="mat__mesh_3__metal_black" />
+        <geom type="box" size="1.8 0.3 0.9" pos="0 0 0.9" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="shelf_2" pos="-4 21.5 0" euler="0 -0 1.57">
+      <body name="shelf_2__shelf_base" pos="-0.5 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_001" material="mat__mesh_3__material_001" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__material_011" material="mat__mesh_3__material_011" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__board" material="mat__mesh_3__board" />
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_3__metal_black" material="mat__mesh_3__metal_black" />
+        <geom type="box" size="1.8 0.3 0.9" pos="0 0 0.9" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="barrier_0" pos="-10.4 14.75 0" euler="0 -0 1.57">
+      <body name="barrier_0__link" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_4__barrier" material="mat__mesh_4__barrier" />
+        <geom type="box" size="2.03271 0.15315 0.5715" pos="0 0 0.5715" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.40535 0.032258" pos="0 0 0.032258" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.325 0.05" pos="0 0 0.1" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.05" pos="0 0 0.2" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.032258" pos="0 -0.224 0.2401" euler="0.9 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.032258" pos="0 0.224 0.2401" euler="-0.9 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="barrier_1" pos="-10.4 10.5 0" euler="0 -0 1.57">
+      <body name="barrier_1__link" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_4__barrier" material="mat__mesh_4__barrier" />
+        <geom type="box" size="2.03271 0.15315 0.5715" pos="0 0 0.5715" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.40535 0.032258" pos="0 0 0.032258" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.325 0.05" pos="0 0 0.1" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.05" pos="0 0 0.2" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.032258" pos="0 -0.224 0.2401" euler="0.9 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.032258" pos="0 0.224 0.2401" euler="-0.9 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="barrier_2" pos="-10.4 6.5 0" euler="0 -0 1.57">
+      <body name="barrier_2__link" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_4__barrier" material="mat__mesh_4__barrier" />
+        <geom type="box" size="2.03271 0.15315 0.5715" pos="0 0 0.5715" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.40535 0.032258" pos="0 0 0.032258" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.325 0.05" pos="0 0 0.1" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.05" pos="0 0 0.2" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.032258" pos="0 -0.224 0.2401" euler="0.9 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.032258" pos="0 0.224 0.2401" euler="-0.9 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="barrier_3" pos="-12.85 4.85 0" euler="0 -0 0">
+      <body name="barrier_3__link" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_4__barrier" material="mat__mesh_4__barrier" />
+        <geom type="box" size="2.03271 0.15315 0.5715" pos="0 0 0.5715" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.40535 0.032258" pos="0 0 0.032258" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.325 0.05" pos="0 0 0.1" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.05" pos="0 0 0.2" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.032258" pos="0 -0.224 0.2401" euler="0.9 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="box" size="2.03271 0.25 0.032258" pos="0 0.224 0.2401" euler="-0.9 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="chair_0" pos="12.6547613144 -1.7843409777 0" euler="0 -0 1.9098299843">
+      <body name="chair_0__body" pos="0 0 0" euler="0 0 1.5708">
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_5__chair" material="mat__mesh_5__chair" />
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_5" />
+      </body>
+    </body>
+    <body name="chair_1" pos="12.86810112 -0.1408987343 0" euler="0 -0 -1.7813099574">
+      <body name="chair_1__body" pos="0 0 0" euler="0 0 1.5708">
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_5__chair" material="mat__mesh_5__chair" />
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_5" />
+      </body>
+    </body>
+    <body name="fchair_0" pos="-11.5 6.4 0" euler="0 -0 -1.8">
+      <body name="fchair_0__base_link" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_6__chair" material="mat__mesh_6__chair" />
+        <geom type="box" size="0.25 0.25 0.4" pos="0 0.05 0.4" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="fchair1" pos="-14 6.5 0" euler="0 -0 1.9">
+      <body name="fchair1__base_link" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="1.5707963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_6__chair" material="mat__mesh_6__chair" />
+        <geom type="box" size="0.25 0.25 0.4" pos="0 0.05 0.4" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="table0" pos="-12.7 6.5 0" euler="0 -0 0">
+      <body name="table0__link" pos="0 0 0" euler="0 0 0">
+        <geom type="box" size="0.75 0.4 0.015" pos="0 0 1" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="cylinder" size="0.02 0.5" pos="0.68 0.38 0.5" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="cylinder" size="0.02 0.5" pos="0.68 -0.38 0.5" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="cylinder" size="0.02 0.5" pos="-0.68 -0.38 0.5" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="cylinder" size="0.02 0.5" pos="-0.68 0.38 0.5" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="box" size="0.75 0.4 0.015" pos="0 0 1" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="cylinder" size="0.02 0.5" pos="0.68 0.38 0.5" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="cylinder" size="0.02 0.5" pos="0.68 -0.38 0.5" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="cylinder" size="0.02 0.5" pos="-0.68 -0.38 0.5" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="cylinder" size="0.02 0.5" pos="-0.68 0.38 0.5" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="Person_1_-_Standing" pos="-0.8744440079 -0.0112049002 0" euler="0 -0 -2.9845165294">
+      <body name="Person_1_-_Standing__body" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_7__malevisitor" material="mat__mesh_7__malevisitor" />
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_7__phone" material="mat__mesh_7__phone" />
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_8" />
+      </body>
+    </body>
+    <body name="Person_2_-_Walking" pos="-12 15 0" euler="0 -0 0">
+      <body name="Person_2_-_Walking__link" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0.02" euler="1.6107963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_9__eye_brown" material="mat__mesh_9__eye_brown" />
+        <geom type="mesh" pos="0 0 0.02" euler="1.6107963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_9__shoes05" material="mat__mesh_9__shoes05" />
+        <geom type="mesh" pos="0 0 0.02" euler="1.6107963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_9__bodymaterial" material="mat__mesh_9__bodymaterial" />
+        <geom type="mesh" pos="0 0 0.02" euler="1.6107963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_9__eyebrow002" material="mat__mesh_9__eyebrow002" />
+        <geom type="mesh" pos="0 0 0.02" euler="1.6107963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_9__female_casualsuit01" material="mat__mesh_9__female_casualsuit01" />
+        <geom type="mesh" pos="0 0 0.02" euler="1.6107963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_9__female_casualsuit02" material="mat__mesh_9__female_casualsuit02" />
+        <geom type="mesh" pos="0 0 0.02" euler="1.6107963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_9__ponytail01" material="mat__mesh_9__ponytail01" />
+        <geom type="mesh" pos="0 0 0.02" euler="1.6107963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_9__tongue01material" material="mat__mesh_9__tongue01material" />
+        <geom type="mesh" pos="0 0 0.02" euler="1.6107963268 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_9__young_caucasian_female" material="mat__mesh_9__young_caucasian_female" />
+        <geom type="box" size="0.38 0.165 0.885" pos="0 0 0.9" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="Cardboard_box" pos="12.9489088058 -0.9551569819 1.165" euler="0 -0 0">
+      <body name="Cardboard_box__link" pos="0 0 0" euler="0 0 0">
+        <inertial pos="0 0 0" mass="2" fullinertia="0.041666667 0.056666667 0.068333333 0 0 0" />
+        <geom type="mesh" pos="0 -0.2 0" euler="0 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_10__cardboardboxes" material="mat__mesh_10__cardboardboxes" />
+        <geom type="box" size="0.25 0.2 0.15" pos="0 0 0" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="KitchenCountertop" pos="14.5765562057 -1.305210948 0" euler="0 0 3.1033699985">
+      <body name="KitchenCountertop__link" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_11__kitchencountertop" material="mat__mesh_11__kitchencountertop" />
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_11" />
+      </body>
+    </body>
+    <body name="Fridge" pos="13.8132066727 1.0629010201 0" euler="0 0 -0.8890549993">
+      <body name="Fridge__body" pos="0 0 0" euler="0 0 0">
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="0" conaffinity="0" group="0" mesh="mesh_12__fridge" material="mat__mesh_12__fridge" />
+        <geom type="mesh" pos="0 0 0" euler="0 0 0" contype="1" conaffinity="1" group="3" mesh="mesh_13" />
+      </body>
+    </body>
+    <body name="table0_1" pos="12.7768955231 -0.8930919766 0" euler="0 -0 0">
+      <body name="table0_1__link" pos="0 0 0" euler="0 0 0">
+        <geom type="box" size="0.75 0.4 0.015" pos="0 0 1" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="cylinder" size="0.02 0.5" pos="0.68 0.38 0.5" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="cylinder" size="0.02 0.5" pos="0.68 -0.38 0.5" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="cylinder" size="0.02 0.5" pos="-0.68 -0.38 0.5" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="cylinder" size="0.02 0.5" pos="-0.68 0.38 0.5" euler="0 0 0" contype="2" conaffinity="0" group="0" />
+        <geom type="box" size="0.75 0.4 0.015" pos="0 0 1" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="cylinder" size="0.02 0.5" pos="0.68 0.38 0.5" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="cylinder" size="0.02 0.5" pos="0.68 -0.38 0.5" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="cylinder" size="0.02 0.5" pos="-0.68 -0.38 0.5" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+        <geom type="cylinder" size="0.02 0.5" pos="-0.68 0.38 0.5" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
+    <body name="small_sphere" pos="-7.5318880081 -2.5575699806 0.3297370076" euler="-0.0274476996 -0 0">
+      <body name="small_sphere__link" pos="0 0 0" euler="0 0 0">
+        <geom type="sphere" size="0.035" pos="0 0 0" euler="0 0 0" contype="2" conaffinity="0" group="0" material="mat_0" />
+        <geom type="sphere" size="0.03" pos="0 0 0" euler="0 0 0" contype="1" conaffinity="1" group="3" />
+      </body>
+    </body>
   </worldbody>
 </mujoco>

@@ -1,0 +1,1286 @@
+{
+  "includes": [
+    {
+      "include_pose": [
+        0.0,
+        0.0,
+        -0.1,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        0.0,
+        0.0,
+        -0.1,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "warehouse__warehouse_base",
+          "collision_count": 1,
+          "name": "warehouse_base",
+          "visual_count": 2
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "warehouse",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Warehouse"
+    },
+    {
+      "include_pose": [
+        -8.5,
+        -13.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        -8.5,
+        -13.0,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "shelf_big_0__shelf_big_base",
+          "collision_count": 1,
+          "name": "shelf_big_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_big_0",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "include_pose": [
+        6.5,
+        -13.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        6.5,
+        -13.0,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "shelf_big_1__shelf_big_base",
+          "collision_count": 1,
+          "name": "shelf_big_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_big_1",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "include_pose": [
+        -1.5,
+        -13.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        -1.5,
+        -13.0,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "shelf_big_2__shelf_big_base",
+          "collision_count": 1,
+          "name": "shelf_big_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_big_2",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "include_pose": [
+        13.5,
+        4.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        13.5,
+        4.5,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "shelf_3__shelf_base",
+          "collision_count": 1,
+          "name": "shelf_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_3",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "include_pose": [
+        10.0,
+        4.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        10.0,
+        4.5,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "shelf_4__shelf_base",
+          "collision_count": 1,
+          "name": "shelf_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_4",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "include_pose": [
+        13.5,
+        -21.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        13.5,
+        -21.0,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "shelf_5__shelf_base",
+          "collision_count": 1,
+          "name": "shelf_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_5",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "include_pose": [
+        13.5,
+        -15.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        13.5,
+        -15.0,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "shelf_6__shelf_base",
+          "collision_count": 1,
+          "name": "shelf_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_6",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "include_pose": [
+        0.4,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        0.4,
+        -2.0,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "shelf_7__shelf_base",
+          "collision_count": 1,
+          "name": "shelf_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_7",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "include_pose": [
+        3.5,
+        9.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "instance_pose": [
+        3.5,
+        9.5,
+        0.0,
+        0.0,
+        -0.0,
+        1.5699999999999998
+      ],
+      "links": [
+        {
+          "body": "shelf_big_3__shelf_big_base",
+          "collision_count": 1,
+          "name": "shelf_big_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_big_3",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "include_pose": [
+        -1.300000000000001,
+        18.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "instance_pose": [
+        -1.300000000000001,
+        18.5,
+        0.0,
+        0.0,
+        -0.0,
+        1.5699999999999998
+      ],
+      "links": [
+        {
+          "body": "shelf_big_4__shelf_big_base",
+          "collision_count": 1,
+          "name": "shelf_big_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_big_4",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "include_pose": [
+        -10.0,
+        21.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "instance_pose": [
+        -10.0,
+        21.5,
+        0.0,
+        0.0,
+        -0.0,
+        1.5699999999999998
+      ],
+      "links": [
+        {
+          "body": "shelf_0__shelf_base",
+          "collision_count": 1,
+          "name": "shelf_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_0",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "include_pose": [
+        -6.999999999999996,
+        23.6,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "instance_pose": [
+        -6.999999999999996,
+        23.6,
+        0.0,
+        0.0,
+        -0.0,
+        1.5699999999999998
+      ],
+      "links": [
+        {
+          "body": "shelf_1__shelf_base",
+          "collision_count": 1,
+          "name": "shelf_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_1",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "include_pose": [
+        -3.9999999999999996,
+        21.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "instance_pose": [
+        -3.9999999999999996,
+        21.5,
+        0.0,
+        0.0,
+        -0.0,
+        1.5699999999999998
+      ],
+      "links": [
+        {
+          "body": "shelf_2__shelf_base",
+          "collision_count": 1,
+          "name": "shelf_base",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "shelf_2",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "include_pose": [
+        -10.4,
+        14.75,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "instance_pose": [
+        -10.4,
+        14.75,
+        0.0,
+        0.0,
+        -0.0,
+        1.5699999999999998
+      ],
+      "links": [
+        {
+          "body": "barrier_0__link",
+          "collision_count": 6,
+          "name": "link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "barrier_0",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier"
+    },
+    {
+      "include_pose": [
+        -10.4,
+        10.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "instance_pose": [
+        -10.4,
+        10.5,
+        0.0,
+        0.0,
+        -0.0,
+        1.5699999999999998
+      ],
+      "links": [
+        {
+          "body": "barrier_1__link",
+          "collision_count": 6,
+          "name": "link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "barrier_1",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier"
+    },
+    {
+      "include_pose": [
+        -10.4,
+        6.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "instance_pose": [
+        -10.4,
+        6.5,
+        0.0,
+        0.0,
+        -0.0,
+        1.5699999999999998
+      ],
+      "links": [
+        {
+          "body": "barrier_2__link",
+          "collision_count": 6,
+          "name": "link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "barrier_2",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier"
+    },
+    {
+      "include_pose": [
+        -12.85,
+        4.85,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        -12.85,
+        4.85,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "barrier_3__link",
+          "collision_count": 6,
+          "name": "link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "barrier_3",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier"
+    },
+    {
+      "include_pose": [
+        12.654761314392092,
+        -1.7843409776687615,
+        0.0,
+        0.0,
+        0.0,
+        1.9098299843376185
+      ],
+      "instance_pose": [
+        12.654761314392092,
+        -1.7843409776687615,
+        0.0,
+        0.0,
+        -0.0,
+        1.9098299843376185
+      ],
+      "links": [
+        {
+          "body": "chair_0__body",
+          "collision_count": 1,
+          "name": "body",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "chair_0",
+      "nested_includes": [],
+      "static": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair"
+    },
+    {
+      "include_pose": [
+        12.868101119995119,
+        -0.14089873433113143,
+        0.0,
+        0.0,
+        0.0,
+        -1.7813099574331437
+      ],
+      "instance_pose": [
+        12.868101119995119,
+        -0.14089873433113143,
+        0.0,
+        0.0,
+        -0.0,
+        -1.7813099574331437
+      ],
+      "links": [
+        {
+          "body": "chair_1__body",
+          "collision_count": 1,
+          "name": "body",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "chair_1",
+      "nested_includes": [],
+      "static": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair"
+    },
+    {
+      "include_pose": [
+        -11.5,
+        6.4,
+        0.0,
+        0.0,
+        0.0,
+        -1.7999999999999998
+      ],
+      "instance_pose": [
+        -11.5,
+        6.4,
+        0.0,
+        0.0,
+        -0.0,
+        -1.7999999999999998
+      ],
+      "links": [
+        {
+          "body": "fchair_0__base_link",
+          "collision_count": 1,
+          "name": "base_link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "fchair_0",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/foldable_chair"
+    },
+    {
+      "include_pose": [
+        -14.0,
+        6.5,
+        0.0,
+        0.0,
+        0.0,
+        1.9000000000000004
+      ],
+      "instance_pose": [
+        -14.0,
+        6.5,
+        0.0,
+        0.0,
+        -0.0,
+        1.9000000000000004
+      ],
+      "links": [
+        {
+          "body": "fchair1__base_link",
+          "collision_count": 1,
+          "name": "base_link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "fchair1",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/foldable_chair"
+    },
+    {
+      "include_pose": [
+        -12.7,
+        6.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        -12.7,
+        6.5,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "table0__link",
+          "collision_count": 5,
+          "name": "link",
+          "visual_count": 5
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "table0",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table"
+    },
+    {
+      "include_pose": [
+        -0.8744440078735352,
+        -0.011204900220036507,
+        0.0,
+        0.0,
+        0.0,
+        -2.9845165294169256
+      ],
+      "instance_pose": [
+        -0.8744440078735352,
+        -0.011204900220036507,
+        0.0,
+        0.0,
+        -0.0,
+        -2.9845165294169256
+      ],
+      "links": [
+        {
+          "body": "Person_1_-_Standing__body",
+          "collision_count": 1,
+          "name": "body",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "Person 1 - Standing",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/MaleVisitorOnPhone"
+    },
+    {
+      "include_pose": [
+        -12.0,
+        15.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        -12.0,
+        15.0,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "Person_2_-_Walking__link",
+          "collision_count": 1,
+          "name": "link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "Person 2 - Walking",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/plateau/models/Casual female"
+    },
+    {
+      "include_pose": [
+        12.948908805847168,
+        -0.9551569819450378,
+        1.2651699781417847,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        12.948908805847168,
+        -0.9551569819450378,
+        1.4151699781417846,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "Cardboard_box__link",
+          "collision_count": 1,
+          "name": "link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.15,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "Cardboard box",
+      "nested_includes": [],
+      "static": false,
+      "uri": "https://fuel.gazebosim.org/1.0/openrobotics/models/Cardboard box"
+    },
+    {
+      "include_pose": [
+        14.576556205749512,
+        -1.3052109479904175,
+        0.19535380601882935,
+        0.027427600234594895,
+        0.001049060018952221,
+        3.1033699984710212
+      ],
+      "instance_pose": [
+        14.576556205749512,
+        -1.3052109479904175,
+        0.19535380601882935,
+        0.027427600234594892,
+        0.001049060018952221,
+        3.1033699984710212
+      ],
+      "links": [
+        {
+          "body": "KitchenCountertop__link",
+          "collision_count": 1,
+          "name": "link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "KitchenCountertop",
+      "nested_includes": [],
+      "static": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/KitchenCountertop"
+    },
+    {
+      "include_pose": [
+        13.813206672668457,
+        1.0629010200500488,
+        0.13033878803253174,
+        -0.017294700258883147,
+        -0.021314600645293197,
+        -0.8890549993008644
+      ],
+      "instance_pose": [
+        13.813206672668457,
+        1.0629010200500488,
+        0.13033878803253174,
+        -0.017294700258883147,
+        -0.021314600645293197,
+        -0.8890549993008644
+      ],
+      "links": [
+        {
+          "body": "Fridge__body",
+          "collision_count": 1,
+          "name": "body",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "Fridge",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Fridge"
+    },
+    {
+      "include_pose": [
+        12.776895523071289,
+        -0.8930919766426086,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        12.776895523071289,
+        -0.8930919766426086,
+        0.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "table0_1__link",
+          "collision_count": 5,
+          "name": "link",
+          "visual_count": 5
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "table0_1",
+      "nested_includes": [],
+      "static": true,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table"
+    },
+    {
+      "include_pose": [
+        -7.531888008117676,
+        -2.557569980621338,
+        0.3297370076179505,
+        -0.027447699558054563,
+        0.0,
+        0.0
+      ],
+      "instance_pose": [
+        -7.531888008117676,
+        -2.557569980621338,
+        0.3297370076179505,
+        -0.027447699558054563,
+        -0.0,
+        0.0
+      ],
+      "links": [
+        {
+          "body": "small_sphere__link",
+          "collision_count": 1,
+          "name": "link",
+          "visual_count": 1
+        }
+      ],
+      "model_pose": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "name": "small_sphere",
+      "nested_includes": [],
+      "static": false,
+      "uri": "file:///home/nartech/nartech_ws/src/nartech_ros/worlds/objects/orangeball"
+    }
+  ],
+  "mesh_assets": [
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse.obj",
+      "name": "mesh_0",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "OpenRobotics/Warehouse/meshes/warehouse.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_colision.stl",
+      "name": "mesh_1",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "OpenRobotics/Warehouse/meshes/warehouse_colision.stl"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/MovAi/shelf_big/meshes/shelf_big_movai.obj",
+      "name": "mesh_2",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "MovAi/shelf_big/meshes/shelf_big_movai.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/MovAi/shelf/meshes/shelf_big_movai.obj",
+      "name": "mesh_3",
+      "scale": [
+        0.2,
+        0.3,
+        0.3
+      ],
+      "source_rel": "MovAi/shelf/meshes/shelf_big_movai.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/Jersey Barrier/meshes/jersey_barrier.obj",
+      "name": "mesh_4",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "OpenRobotics/Jersey Barrier/meshes/jersey_barrier.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/Chair/meshes/Chair.obj",
+      "name": "mesh_5",
+      "scale": [
+        0.00817,
+        0.00817,
+        0.00817
+      ],
+      "source_rel": "OpenRobotics/Chair/meshes/Chair.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/foldable_chair/mesh/foldable_chair.obj",
+      "name": "mesh_6",
+      "scale": [
+        0.1,
+        0.1,
+        0.1
+      ],
+      "source_rel": "OpenRobotics/foldable_chair/mesh/foldable_chair.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic.obj",
+      "name": "mesh_7",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_Col.obj",
+      "name": "mesh_8",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_Col.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female.obj",
+      "name": "mesh_9",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "plateau/Casual female/meshes/casual_female.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/openrobotics/Cardboard box/meshes/cardboard_box.obj",
+      "name": "mesh_10",
+      "scale": [
+        1.25931896,
+        1.007455168,
+        0.755591376
+      ],
+      "source_rel": "openrobotics/Cardboard box/meshes/cardboard_box.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/KitchenCountertop/meshes/KitchenCountertop.obj",
+      "name": "mesh_11",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "OpenRobotics/KitchenCountertop/meshes/KitchenCountertop.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/Fridge/meshes/Fridge.obj",
+      "name": "mesh_12",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "OpenRobotics/Fridge/meshes/Fridge.obj"
+    },
+    {
+      "file": "../../scenes/narhouse_fuel/converted/OpenRobotics/Fridge/meshes/Fridge_Col.obj",
+      "name": "mesh_13",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "source_rel": "OpenRobotics/Fridge/meshes/Fridge_Col.obj"
+    }
+  ]
+}

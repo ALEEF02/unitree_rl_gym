@@ -1,0 +1,99 @@
+# File produced by Open Asset Import Library (http://www.assimp.sf.net)
+# (assimp v6.0.0)
+
+newmtl Eye_brown
+Kd 1 1 1
+Ka 1 1 1
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1
+Ns 256
+illum 2
+map_Kd ../materials/textures/brown_eye.png
+
+newmtl Shoes05
+Kd 1 1 1
+Ka 1 1 1
+Ks 0.0254999995 0.02355 0.02355
+Ke 0 0 0
+Ni 1
+Ns 204
+illum 2
+map_Kd ../materials/textures/shoes05_diffuse.png
+
+newmtl bodyMaterial
+Kd 1 1 1
+Ka 1 1 1
+Ks 0 0 0
+Ke 0 0 0
+d 1
+Ni 1
+Ns 128
+illum 2
+map_Kd ../materials/textures/eyelashes01.png
+map_d ../materials/textures/eyelashes01.png
+
+newmtl eyebrow002
+Kd 1 1 1
+Ka 1 1 1
+Ks 0 0 0
+Ke 0 0 0
+d 1
+Ni 1
+Ns 128
+illum 2
+map_Kd ../materials/textures/eyebrow002.png
+map_d ../materials/textures/eyebrow002.png
+
+newmtl female_casualsuit01
+Kd 1 1 1
+Ka 1 1 1
+Ks 0.0137499999 0.0137499999 0.0137499999
+Ke 0 0 0
+Ni 1
+Ns 50
+illum 2
+map_Kd ../materials/textures/female_casualsuit01_diffuse.png
+
+newmtl female_casualsuit02
+Kd 1 1 1
+Ka 1 1 1
+Ks 0.0137499999 0.0137499999 0.0137499999
+Ke 0 0 0
+Ni 1
+Ns 50
+illum 2
+map_Kd ../materials/textures/female_casualsuit02_diffuse.png
+
+newmtl ponytail01
+Kd 1 1 1
+Ka 1 1 1
+Ks 0.02355 0.02355 0.02355
+Ke 0 0 0
+d 1
+Ni 1
+Ns 245
+illum 2
+map_Kd ../materials/textures/ponytail01_diffuse.png
+map_d ../materials/textures/ponytail01_diffuse.png
+
+newmtl tongue01Material
+Kd 1 1 1
+Ka 1 1 1
+Ks 0.0156999994 0.0156999994 0.0156999994
+Ke 0 0 0
+Ni 1
+Ns 50
+illum 2
+map_Kd ../materials/textures/tongue01_diffuse.png
+
+newmtl young_caucasian_female
+Kd 1 1 1
+Ka 1 1 1
+Ks 0.0313500017 0.0254999995 0.0254999995
+Ke 0 0 0
+Ni 1
+Ns 128
+illum 2
+map_Kd ../materials/textures/young_lightskinned_female_diffuse.png
+

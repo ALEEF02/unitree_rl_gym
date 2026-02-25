@@ -1,0 +1,15 @@
+# File produced by Open Asset Import Library (http://www.assimp.sf.net)
+# (assimp v6.0.0)
+
+newmtl Chair
+Kd 1 1 1
+Ka 0.588235021 0.588235021 0.588235021
+Ks 0 0 0
+Ke 0 0 0
+Tf 1 1 1
+d 1
+Ni 1
+Ns 2
+illum 2
+map_Kd foldable_chair.png
+

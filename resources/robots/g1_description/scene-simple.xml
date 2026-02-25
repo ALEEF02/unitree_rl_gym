@@ -1,0 +1,156 @@
+<mujoco model="g1 scene">
+  <include file="g1_12dof.xml"/>
+
+  <statistic center="1.0 0.7 1.0" extent="0.8"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0.9 0.9 0.9"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="-140" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="flat" rgb1="0 0 0" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+  </asset>
+  
+  <asset>
+    <!-- Materials -->
+    <material name="mat_wood" rgba="0.55 0.36 0.20 1" specular="0.25" shininess="0.25"/>
+    <material name="mat_plastic_black" rgba="0.04 0.04 0.05 1" specular="0.25" shininess="0.15"/>
+    <material name="mat_rubber" rgba="0.08 0.08 0.08 1" specular="0.05" shininess="0.05"/>
+    <material name="mat_stainless" rgba="0.72 0.75 0.78 1" specular="0.9" shininess="0.8"/>
+    <material name="mat_enamel_white" rgba="0.94 0.95 0.97 1" specular="0.35" shininess="0.6"/>
+    <material name="mat_enamel_black" rgba="0.10 0.10 0.12 1" specular="0.30" shininess="0.35"/>
+    <material name="mat_glass" rgba="0.20 0.20 0.22 0.25" specular="0.9" shininess="0.9"/>
+  </asset>
+
+
+  <worldbody>
+    <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+    
+        <!-- Static wall -->
+    <body name="wall" pos="1.6 0 0.5">
+      <geom name="wall_geom" type="box" size="0.05 1.0 1.0" rgba="0.7 0.7 0.7 1"
+            contype="1" conaffinity="1"/>
+    </body>
+    
+    <body name="desk" pos="-5 0 0">
+      <!-- tabletop -->
+      <geom type="box" pos="0 0 0.75" size="0.6 0.3 0.03" rgba="0.6 0.4 0.2 1"/>
+      <!-- legs -->
+      <geom type="box" pos="0.55 0.25 0.375" size="0.03 0.03 0.375"/>
+      <geom type="box" pos="-0.55 0.25 0.375" size="0.03 0.03 0.375"/>
+      <geom type="box" pos="0.55 -0.25 0.375" size="0.03 0.03 0.375"/>
+      <geom type="box" pos="-0.55 -0.25 0.375" size="0.03 0.03 0.375"/>
+    </body>
+    
+    <body name="chair" pos="-4.8 -0.7 0">
+      <!-- Seat -->
+      <geom name="chair_seat" type="box" pos="0 0 0.46" size="0.22 0.22 0.03"
+            material="mat_wood" contype="1" conaffinity="1" friction="1 0.01 0.001"/>
+
+      <!-- Backrest -->
+      <geom name="chair_back" type="box" pos="-0.19 0 0.72" size="0.03 0.22 0.24"
+            material="mat_wood" contype="1" conaffinity="1"/>
+
+      <!-- Legs -->
+      <geom name="chair_leg_fl" type="cylinder" pos="0.18 0.18 0.23" size="0.02 0.23"
+            material="mat_enamel_black" contype="1" conaffinity="1"/>
+      <geom name="chair_leg_fr" type="cylinder" pos="0.18 -0.18 0.23" size="0.02 0.23"
+            material="mat_enamel_black" contype="1" conaffinity="1"/>
+      <geom name="chair_leg_bl" type="cylinder" pos="-0.18 0.18 0.23" size="0.02 0.23"
+            material="mat_enamel_black" contype="1" conaffinity="1"/>
+      <geom name="chair_leg_br" type="cylinder" pos="-0.18 -0.18 0.23" size="0.02 0.23"
+            material="mat_enamel_black" contype="1" conaffinity="1"/>
+
+      <!-- Foot pads -->
+      <geom name="chair_foot_fl" type="sphere" pos="0.18 0.18 0.01" size="0.025" material="mat_rubber"/>
+      <geom name="chair_foot_fr" type="sphere" pos="0.18 -0.18 0.01" size="0.025" material="mat_rubber"/>
+      <geom name="chair_foot_bl" type="sphere" pos="-0.18 0.18 0.01" size="0.025" material="mat_rubber"/>
+      <geom name="chair_foot_br" type="sphere" pos="-0.18 -0.18 0.01" size="0.025" material="mat_rubber"/>
+    </body>
+
+    <body name="fridge" pos="-4.5 0.85 0">
+      <!-- Main carcass -->
+      <geom name="fridge_body" type="box" pos="0 0 0.90" size="0.32 0.35 0.90"
+            material="mat_enamel_white" contype="1" conaffinity="1" friction="1 0.01 0.001"/>
+
+      <!-- Small feet -->
+      <geom type="cylinder" pos="0.25 0.28 0.03" size="0.02 0.03" material="mat_rubber"/>
+      <geom type="cylinder" pos="0.25 -0.28 0.03" size="0.02 0.03" material="mat_rubber"/>
+      <geom type="cylinder" pos="-0.25 0.28 0.03" size="0.02 0.03" material="mat_rubber"/>
+      <geom type="cylinder" pos="-0.25 -0.28 0.03" size="0.02 0.03" material="mat_rubber"/>
+
+      <!-- Door: hinge on the left side (rotate about z) -->
+      <body name="fridge_door" pos="0 0 0">
+        <joint name="fridge_door_hinge" type="hinge" pos="-0.32 0 0.90" axis="0 0 1"
+               limited="true" range="0 1.35" damping="2"/>
+
+        <!-- Door slab -->
+        <geom name="fridge_door_geom" type="box" pos="0.33 0 0.90" size="0.03 0.345 0.88"
+              material="mat_enamel_white" contype="1" conaffinity="1"/>
+
+        <!-- Door gasket seam (thin darker strip) -->
+        <geom name="fridge_door_seam" type="box" pos="0.30 0 0.90" size="0.004 0.345 0.88"
+              material="mat_enamel_black" contype="0" conaffinity="0"/>
+
+        <!-- Handle -->
+        <geom name="fridge_handle" type="capsule" fromto="0.40 0.18 0.70  0.40 0.18 1.40"
+              size="0.015" material="mat_stainless" contype="0" conaffinity="0"/>
+      </body>
+
+      <!-- Optional: freezer line (visual divider) -->
+      <geom name="fridge_divider" type="box" pos="0.32 0 1.30" size="0.002 0.345 0.002"
+            material="mat_enamel_black" contype="0" conaffinity="0"/>
+    </body>
+
+    <body name="stove" pos="-4.5 1.6 0">
+      <!-- Main body -->
+      <geom name="stove_body" type="box" pos="0 0 0.45" size="0.35 0.32 0.45"
+            material="mat_stainless" contype="1" conaffinity="1" friction="1 0.01 0.001"/>
+
+      <!-- Cooktop -->
+      <geom name="stove_top" type="box" pos="0 0 0.92" size="0.36 0.33 0.02"
+            material="mat_enamel_black" contype="1" conaffinity="1"/>
+
+      <!-- Burners (4 discs) -->
+      <geom name="burner_fl" type="cylinder" pos="0.16 0.16 0.94" size="0.07 0.01" material="mat_enamel_black"/>
+      <geom name="burner_fr" type="cylinder" pos="0.16 -0.16 0.94" size="0.07 0.01" material="mat_enamel_black"/>
+      <geom name="burner_bl" type="cylinder" pos="-0.16 0.16 0.94" size="0.06 0.01" material="mat_enamel_black"/>
+      <geom name="burner_br" type="cylinder" pos="-0.16 -0.16 0.94" size="0.06 0.01" material="mat_enamel_black"/>
+
+      <!-- Knob panel -->
+      <geom name="stove_knob_panel" type="box" pos="0.28 0 0.80" size="0.03 0.30 0.08"
+            material="mat_stainless" contype="1" conaffinity="1"/>
+
+      <!-- Knobs -->
+      <geom type="cylinder" pos="0.33 0.18 0.82" size="0.02 0.015" material="mat_plastic_black"/>
+      <geom type="cylinder" pos="0.33 0.06 0.82" size="0.02 0.015" material="mat_plastic_black"/>
+      <geom type="cylinder" pos="0.33 -0.06 0.82" size="0.02 0.015" material="mat_plastic_black"/>
+      <geom type="cylinder" pos="0.33 -0.18 0.82" size="0.02 0.015" material="mat_plastic_black"/>
+
+      <!-- Oven door (hinged at bottom) -->
+      <body name="oven_door" pos="0 0 0">
+        <joint name="oven_door_hinge" type="hinge" pos="0.35 0 0.12" axis="0 1 0"
+               limited="true" range="0 1.20" damping="2"/>
+
+        <!-- Door slab -->
+        <geom name="oven_door_geom" type="box" pos="0.33 0 0.36" size="0.02 0.30 0.30"
+              material="mat_stainless" contype="1" conaffinity="1"/>
+
+        <!-- Glass window -->
+        <geom name="oven_glass" type="box" pos="0.31 0 0.36" size="0.003 0.22 0.16"
+              material="mat_glass" contype="0" conaffinity="0"/>
+
+        <!-- Handle -->
+        <geom name="oven_handle" type="capsule" fromto="0.37 -0.22 0.58  0.37 0.22 0.58"
+              size="0.012" material="mat_stainless" contype="0" conaffinity="0"/>
+      </body>
+    </body>
+
+
+  </worldbody>
+</mujoco>

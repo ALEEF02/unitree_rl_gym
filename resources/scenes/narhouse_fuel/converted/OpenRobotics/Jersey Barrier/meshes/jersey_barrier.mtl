@@ -1,0 +1,14 @@
+# File produced by Open Asset Import Library (http://www.assimp.sf.net)
+# (assimp v6.0.0)
+
+newmtl Barrier
+Kd 1 1 1
+Ka 0.588235319 0.588235319 0.588235319
+Ks 0.899999976 0.899999976 0.899999976
+Ke 0 0 0
+d 1
+Ni 1
+Ns 9.99999905
+illum 2
+map_Kd ../materials/textures/jersey_barrier_diffuse.jpg
+

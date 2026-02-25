@@ -1,0 +1,55 @@
+{
+  "materials": {
+    "file:///home/nartech/nartech_ws/src/nartech_ros/worlds/objects/orangeball::link::visual": {
+      "ambient": [
+        1.0,
+        0.5,
+        0.0,
+        1.0
+      ],
+      "diffuse": [
+        1.0,
+        0.5,
+        0.0,
+        1.0
+      ]
+    },
+    "https://fuel.gazebosim.org/1.0/MovAi/models/shelf::shelf_base::shelf_chassi_visual": {},
+    "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big::shelf_big_base::shelf_big_chassi_visual": {},
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair::body::visual": {},
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Fridge::body::visual": {},
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier::link::visual": {},
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/KitchenCountertop::link::visual": {},
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/MaleVisitorOnPhone::body::visual": {},
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table::link::back_left_leg": {
+      "script_uris": [
+        "file://media/materials/scripts/gazebo.material"
+      ]
+    },
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table::link::back_right_leg": {
+      "script_uris": [
+        "file://media/materials/scripts/gazebo.material"
+      ]
+    },
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table::link::front_left_leg": {
+      "script_uris": [
+        "file://media/materials/scripts/gazebo.material"
+      ]
+    },
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table::link::front_right_leg": {
+      "script_uris": [
+        "file://media/materials/scripts/gazebo.material"
+      ]
+    },
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table::link::visual1": {
+      "script_uris": [
+        "file://media/materials/scripts/gazebo.material"
+      ]
+    },
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Warehouse::warehouse_base::drop_area_visual": {},
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Warehouse::warehouse_base::warehouse_visual": {},
+    "https://fuel.gazebosim.org/1.0/OpenRobotics/models/foldable_chair::base_link::visual": {},
+    "https://fuel.gazebosim.org/1.0/openrobotics/models/Cardboard box::link::visual": {},
+    "https://fuel.gazebosim.org/1.0/plateau/models/Casual female::link::visual": {}
+  }
+}

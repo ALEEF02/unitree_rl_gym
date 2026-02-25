@@ -1,5 +1,5 @@
 <mujoco model="g1_12dof">
-  <compiler angle="radian" meshdir="meshes/"/>
+  <compiler angle="radian" meshdir="meshes/" discardvisual="false"/>
 
   <statistic meansize="0.144785" extent="1.23314" center="0.025392 2.0634e-05 -0.245975"/>
   <default>

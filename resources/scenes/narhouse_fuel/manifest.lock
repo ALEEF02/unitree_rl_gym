@@ -1,0 +1,1044 @@
+{
+  "converted_root": "/Users/anthony-trueagi/Documents/unitree_rl_gym/resources/scenes/narhouse_fuel/converted",
+  "download_script": "/Users/anthony-trueagi/Documents/unitree_rl_gym/resources/scenes/narhouse_fuel/download_models.sh",
+  "includes": [
+    {
+      "name": "warehouse",
+      "pose": [
+        0.0,
+        0.0,
+        -0.1,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Warehouse"
+    },
+    {
+      "name": "shelf_big_0",
+      "pose": [
+        -8.5,
+        -13.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "name": "shelf_big_1",
+      "pose": [
+        6.5,
+        -13.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "name": "shelf_big_2",
+      "pose": [
+        -1.5,
+        -13.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "name": "shelf_3",
+      "pose": [
+        13.5,
+        4.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "name": "shelf_4",
+      "pose": [
+        10.0,
+        4.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "name": "shelf_5",
+      "pose": [
+        13.5,
+        -21.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "name": "shelf_6",
+      "pose": [
+        13.5,
+        -15.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "name": "shelf_7",
+      "pose": [
+        0.4,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "name": "shelf_big_3",
+      "pose": [
+        3.5,
+        9.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "name": "shelf_big_4",
+      "pose": [
+        -1.300000000000001,
+        18.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    {
+      "name": "shelf_0",
+      "pose": [
+        -10.0,
+        21.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "name": "shelf_1",
+      "pose": [
+        -6.999999999999996,
+        23.6,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "name": "shelf_2",
+      "pose": [
+        -3.9999999999999996,
+        21.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    {
+      "name": "barrier_0",
+      "pose": [
+        -10.4,
+        14.75,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier"
+    },
+    {
+      "name": "barrier_1",
+      "pose": [
+        -10.4,
+        10.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier"
+    },
+    {
+      "name": "barrier_2",
+      "pose": [
+        -10.4,
+        6.5,
+        0.0,
+        0.0,
+        0.0,
+        1.5699999999999998
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier"
+    },
+    {
+      "name": "barrier_3",
+      "pose": [
+        -12.85,
+        4.85,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier"
+    },
+    {
+      "name": "chair_0",
+      "pose": [
+        12.654761314392092,
+        -1.7843409776687615,
+        0.0,
+        0.0,
+        0.0,
+        1.9098299843376185
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair"
+    },
+    {
+      "name": "chair_1",
+      "pose": [
+        12.868101119995119,
+        -0.14089873433113143,
+        0.0,
+        0.0,
+        0.0,
+        -1.7813099574331437
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair"
+    },
+    {
+      "name": "fchair_0",
+      "pose": [
+        -11.5,
+        6.4,
+        0.0,
+        0.0,
+        0.0,
+        -1.7999999999999998
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/foldable_chair"
+    },
+    {
+      "name": "fchair1",
+      "pose": [
+        -14.0,
+        6.5,
+        0.0,
+        0.0,
+        0.0,
+        1.9000000000000004
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/foldable_chair"
+    },
+    {
+      "name": "table0",
+      "pose": [
+        -12.7,
+        6.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table"
+    },
+    {
+      "name": "Person 1 - Standing",
+      "pose": [
+        -0.8744440078735352,
+        -0.011204900220036507,
+        0.0,
+        0.0,
+        0.0,
+        -2.9845165294169256
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/MaleVisitorOnPhone"
+    },
+    {
+      "name": "Person 2 - Walking",
+      "pose": [
+        -12.0,
+        15.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/plateau/models/Casual female"
+    },
+    {
+      "name": "Cardboard box",
+      "pose": [
+        12.948908805847168,
+        -0.9551569819450378,
+        1.2651699781417847,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/openrobotics/models/Cardboard box"
+    },
+    {
+      "name": "KitchenCountertop",
+      "pose": [
+        14.576556205749512,
+        -1.3052109479904175,
+        0.19535380601882935,
+        0.027427600234594895,
+        0.001049060018952221,
+        3.1033699984710212
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/KitchenCountertop"
+    },
+    {
+      "name": "Fridge",
+      "pose": [
+        13.813206672668457,
+        1.0629010200500488,
+        0.13033878803253174,
+        -0.017294700258883147,
+        -0.021314600645293197,
+        -0.8890549993008644
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Fridge"
+    },
+    {
+      "name": "table0_1",
+      "pose": [
+        12.776895523071289,
+        -0.8930919766426086,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table"
+    },
+    {
+      "name": "small_sphere",
+      "pose": [
+        -7.531888008117676,
+        -2.557569980621338,
+        0.3297370076179505,
+        -0.027447699558054563,
+        0.0,
+        0.0
+      ],
+      "static": false,
+      "static_set": false,
+      "uri": "file:///home/nartech/nartech_ws/src/nartech_ros/worlds/objects/orangeball"
+    }
+  ],
+  "missing_models": [],
+  "models": {
+    "MovAi/shelf": {
+      "converted_model_dir": "MovAi/shelf",
+      "local_path": "MovAi/shelf",
+      "mesh_assets": [
+        {
+          "converted_file": "MovAi/shelf/meshes/shelf_big_movai.obj",
+          "converted_uri": "meshes/shelf_big_movai.obj",
+          "original_uri": "meshes/shelf_big_movai.dae",
+          "source_file": "MovAi/shelf/meshes/shelf_big_movai.dae",
+          "usages": [
+            "visual"
+          ]
+        }
+      ],
+      "model_sdf": "MovAi/shelf/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "MovAi/shelf",
+      "raw_tree_sha256": {
+        ".DS_Store": "523978aba29459dde29dee5e5f78fbff510f5b80c2987e415f700b9f6708a032",
+        "meshes/Box_paper_04_1_Base_Color.png": "011024eac091cc125b7addab56547a241558bcb76d2f3190d2932d4db0c4492b",
+        "meshes/shelf_big_movai.dae": "2ade1557766e2bdda0325f6cfce6924c33f3434a8c74379c4764743c21a877bb",
+        "model.config": "0935cc457d5477eda3cca41fc832b70418d8ca3b7a4c3ce27cb3c479f0ceb555",
+        "model.sdf": "5bd74fe8bda9f9e200150713338385b9b0a7e0d087ab82c48e3ae51c869b69ec",
+        "thumbnails/1.png": "7ef6c7d9541c6d41fc3777f6ab27c2a33957cef53df25aba8627816a8373dc89"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "MovAi/shelf/meshes/shelf_big_movai.obj": "3cd416f8d51432992f9b488007bfb8d896f77218a8c0d73837ef68dab8274ef9"
+        },
+        "model_config": "0935cc457d5477eda3cca41fc832b70418d8ca3b7a4c3ce27cb3c479f0ceb555",
+        "model_sdf": "5bd74fe8bda9f9e200150713338385b9b0a7e0d087ab82c48e3ae51c869b69ec",
+        "referenced_meshes": {
+          "MovAi/shelf/meshes/shelf_big_movai.dae": "2ade1557766e2bdda0325f6cfce6924c33f3434a8c74379c4764743c21a877bb"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+    },
+    "MovAi/shelf_big": {
+      "converted_model_dir": "MovAi/shelf_big",
+      "local_path": "MovAi/shelf_big",
+      "mesh_assets": [
+        {
+          "converted_file": "MovAi/shelf_big/meshes/shelf_big_movai.obj",
+          "converted_uri": "meshes/shelf_big_movai.obj",
+          "original_uri": "meshes/shelf_big_movai.dae",
+          "source_file": "MovAi/shelf_big/meshes/shelf_big_movai.dae",
+          "usages": [
+            "visual"
+          ]
+        }
+      ],
+      "model_sdf": "MovAi/shelf_big/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "MovAi/shelf_big",
+      "raw_tree_sha256": {
+        ".DS_Store": "a4fb7b365123911ce6c2590a72eb771728fbbd459bbac734ed6a0d0051afeb23",
+        "meshes/Box_paper_04_1_Base_Color.png": "011024eac091cc125b7addab56547a241558bcb76d2f3190d2932d4db0c4492b",
+        "meshes/shelf_big_movai.dae": "2ade1557766e2bdda0325f6cfce6924c33f3434a8c74379c4764743c21a877bb",
+        "model.config": "16920d959a782311f3920ac03c744b4655279c085a040ae7052f5bf09e38ae3f",
+        "model.sdf": "0fb3e7441418919d3feb561f33b6d1088c862f9bc4b095e1313bdc5bfe9e49d7",
+        "thumbnails/1.png": "f1327a7e50eefb640ee723d4610b4737f4647cc2d20cd847fef1339625209f69"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "MovAi/shelf_big/meshes/shelf_big_movai.obj": "3cd416f8d51432992f9b488007bfb8d896f77218a8c0d73837ef68dab8274ef9"
+        },
+        "model_config": "16920d959a782311f3920ac03c744b4655279c085a040ae7052f5bf09e38ae3f",
+        "model_sdf": "0fb3e7441418919d3feb561f33b6d1088c862f9bc4b095e1313bdc5bfe9e49d7",
+        "referenced_meshes": {
+          "MovAi/shelf_big/meshes/shelf_big_movai.dae": "2ade1557766e2bdda0325f6cfce6924c33f3434a8c74379c4764743c21a877bb"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+    },
+    "OpenRobotics/Chair": {
+      "converted_model_dir": "OpenRobotics/Chair",
+      "local_path": "OpenRobotics/Chair",
+      "mesh_assets": [
+        {
+          "converted_file": "OpenRobotics/Chair/meshes/Chair.obj",
+          "converted_uri": "meshes/Chair.obj",
+          "original_uri": "meshes/Chair.obj",
+          "source_file": "OpenRobotics/Chair/meshes/Chair.obj",
+          "usages": [
+            "collision",
+            "visual"
+          ]
+        }
+      ],
+      "model_sdf": "OpenRobotics/Chair/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "OpenRobotics/Chair",
+      "raw_tree_sha256": {
+        ".DS_Store": "c4d9eaa858d29588aa5aa1a59db1016fc365d28d595deeaa976b24db576d6417",
+        "meshes/Chair.mtl": "b6cff293530c53d6fc9ce96a423bcf6f54f2ef44e7137378be4461e352080290",
+        "meshes/Chair.obj": "c15bd054d3a54a82ebfd00a3dcf89a37046f6157c453040e834c0e06e749a763",
+        "meshes/Chair.png": "9302c9d08039537e19430206d9b0dc86c8e17e801f933cc24b4891112df7d951",
+        "meshes/Chair_Diffuse.png": "5841f94e06c2bc246f17bd55ce56a44f9c9a620a522413df473dc75049e7dd10",
+        "meshes/Chair_Normal.png": "668cc079c93d1477e51f0f3db31946ba51fae9e84a4099631f15cdbf1bf4deb3",
+        "meshes/Chair_SpecGloss.png": "563218bd3e6a214f0aaef564a34b604d0b6560a52d729bdf71685638dd0536e5",
+        "model.config": "70b823befc5c96877ae159c114288aae285d3fb2a24f935ad10b32299c6673a8",
+        "model.sdf": "a1bc535fdf827145758d7515fccba047b9267abcf625f3ee2b4be6cf8972313f",
+        "thumbnails/1.png": "73020ab423b0a1913c304e2264a7aa8d8d6ba1a37a9b8bdb6ee6f061e2cbc09c",
+        "thumbnails/2.png": "e049e58f64fe90673f18611fe33b964a5975b7b38542fd2235c54b00a7994630",
+        "thumbnails/3.png": "e7f19e3aaa78770a31d94d5c85ac30a4a877efe0d34082a786fd488697b0a964",
+        "thumbnails/4.png": "421097640136b615542b86ae2ee73593f27992c032eedbf146189e22d0bbe231",
+        "thumbnails/5.png": "89ca823ee2e95de86ec3a0ff07cbf9522787a7299ed50e297f70bfa8edc1fe99"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "OpenRobotics/Chair/meshes/Chair.obj": "c15bd054d3a54a82ebfd00a3dcf89a37046f6157c453040e834c0e06e749a763"
+        },
+        "model_config": "70b823befc5c96877ae159c114288aae285d3fb2a24f935ad10b32299c6673a8",
+        "model_sdf": "a1bc535fdf827145758d7515fccba047b9267abcf625f3ee2b4be6cf8972313f",
+        "referenced_meshes": {
+          "OpenRobotics/Chair/meshes/Chair.obj": "c15bd054d3a54a82ebfd00a3dcf89a37046f6157c453040e834c0e06e749a763"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair"
+    },
+    "OpenRobotics/Fridge": {
+      "converted_model_dir": "OpenRobotics/Fridge",
+      "local_path": "OpenRobotics/Fridge",
+      "mesh_assets": [
+        {
+          "converted_file": "OpenRobotics/Fridge/meshes/Fridge.obj",
+          "converted_uri": "meshes/Fridge.obj",
+          "original_uri": "meshes/Fridge.obj",
+          "source_file": "OpenRobotics/Fridge/meshes/Fridge.obj",
+          "usages": [
+            "visual"
+          ]
+        },
+        {
+          "converted_file": "OpenRobotics/Fridge/meshes/Fridge_Col.obj",
+          "converted_uri": "meshes/Fridge_Col.obj",
+          "original_uri": "meshes/Fridge_Col.obj",
+          "source_file": "OpenRobotics/Fridge/meshes/Fridge_Col.obj",
+          "usages": [
+            "collision"
+          ]
+        }
+      ],
+      "model_sdf": "OpenRobotics/Fridge/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "OpenRobotics/Fridge",
+      "raw_tree_sha256": {
+        ".DS_Store": "a4fb7b365123911ce6c2590a72eb771728fbbd459bbac734ed6a0d0051afeb23",
+        "meshes/Fridge.mtl": "ed1e3a55acb705e673f285829f5fab6f88b1f8972d6fd3e805f484d019471e24",
+        "meshes/Fridge.obj": "6a92c66af509795528b93eff7d1b02625f9805e699cbc8ee52f60bc1e8270f32",
+        "meshes/Fridge_Col.mtl": "b233e482753d95960b5632348dc7f500fa17a91f8aa8ea3d655acdcc5bfe4c5a",
+        "meshes/Fridge_Col.obj": "9859560112de5abae8021ab676715b36984dbb66c2b991f09589b6d5ecf9d490",
+        "meshes/Fridge_Diffuse.png": "e62ec9ae0e53fcefb41aee311e234c415b4be000be8c5e19197cc4d6efa68384",
+        "model.config": "56a2dbe0f1d302f4fa0e46817ea66dfc811a621264d2b5d7f217cf44f107734e",
+        "model.sdf": "36918f8016af2e0cf7680ab5930fb065293815b0d9ec24847758523ff0812a96",
+        "thumbnails/1.png": "f00e0f1390b66055fbf37fca26611aabc0fab2cf940f1269a81e67a21ad938e3",
+        "thumbnails/2.png": "ce338e525b527c6a030cdfee60ca56db851493ce53be3ed5cf55b7fd31684eed",
+        "thumbnails/3.png": "6303ff99eb178aadfac7d5991babf28450af36d6fd8e293125fa906b5ee889f0",
+        "thumbnails/4.png": "9322597aa79439ebbb942a7575f34db2711e306db9b53eac062b6044eb24e8f5",
+        "thumbnails/5.png": "7d69654fbf68a5070ccaf801406b99331f50f7ef6319e3cda9771addeaabcea0"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "OpenRobotics/Fridge/meshes/Fridge.obj": "6a92c66af509795528b93eff7d1b02625f9805e699cbc8ee52f60bc1e8270f32",
+          "OpenRobotics/Fridge/meshes/Fridge_Col.obj": "9859560112de5abae8021ab676715b36984dbb66c2b991f09589b6d5ecf9d490"
+        },
+        "model_config": "56a2dbe0f1d302f4fa0e46817ea66dfc811a621264d2b5d7f217cf44f107734e",
+        "model_sdf": "36918f8016af2e0cf7680ab5930fb065293815b0d9ec24847758523ff0812a96",
+        "referenced_meshes": {
+          "OpenRobotics/Fridge/meshes/Fridge.obj": "6a92c66af509795528b93eff7d1b02625f9805e699cbc8ee52f60bc1e8270f32",
+          "OpenRobotics/Fridge/meshes/Fridge_Col.obj": "9859560112de5abae8021ab676715b36984dbb66c2b991f09589b6d5ecf9d490"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Fridge"
+    },
+    "OpenRobotics/Jersey Barrier": {
+      "converted_model_dir": "OpenRobotics/Jersey Barrier",
+      "local_path": "OpenRobotics/Jersey Barrier",
+      "mesh_assets": [
+        {
+          "converted_file": "OpenRobotics/Jersey Barrier/meshes/jersey_barrier.obj",
+          "converted_uri": "meshes/jersey_barrier.obj",
+          "original_uri": "meshes/jersey_barrier.dae",
+          "source_file": "OpenRobotics/Jersey Barrier/meshes/jersey_barrier.dae",
+          "usages": [
+            "visual"
+          ]
+        }
+      ],
+      "model_sdf": "OpenRobotics/Jersey Barrier/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "OpenRobotics/Jersey Barrier",
+      "raw_tree_sha256": {
+        ".DS_Store": "a133f57b9ea06745bbeec7fb8091a6d0c5264c4ecd100177462511f6301fb14d",
+        "materials/textures/jersey_barrier.jpg": "57f552ef666849bc3a21086aa89fccb12a3906eea743907ef05a90ceb5bfbaa2",
+        "materials/textures/jersey_barrier_diffuse.jpg": "57f552ef666849bc3a21086aa89fccb12a3906eea743907ef05a90ceb5bfbaa2",
+        "materials/textures/jersey_barrier_spec.jpg": "f0bb399b56d20246371a09b7390f0db5b863d0da03aafba4218dc196e72b622d",
+        "meshes/jersey_barrier.dae": "4a32cf46cd5d82ba21add31465e37a2b57b7b0403364f94fc5a47379feed7a34",
+        "model.config": "0ba72cbf0ec684b897a234af39d95684ba7d39b86acea9ad952f4e1ce8e76808",
+        "model.sdf": "8ca20acc01547394d9f0a3e5c914c85d3f257a3e809f7e5de35eb2fdb72ed31c",
+        "thumbnails/1.jpg": "325bfb6d652aead257693a8a3290390f14bc0ab01c3c39774c3b3e094cc13df3",
+        "thumbnails/2.jpg": "1b98ab8f9594c5dd4a93daedb14c3bf283c58733917c5e8a1c33c59636619575",
+        "thumbnails/3.jpg": "fcda5c63369f7a2e167610d95174d6afa7ea9d274864e5cffbf15af7ad507e6e",
+        "thumbnails/4.jpg": "c35391438e61428c86937c633fd63ba89c597d3f2758927aa3464eca7b7a105d",
+        "thumbnails/5.jpg": "bffe0c7d2366c46643c2f5d54f3f38f853744a994f3b749f6f4d3bc63f45cb0b"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "OpenRobotics/Jersey Barrier/meshes/jersey_barrier.obj": "07f212b9bd6cba4b850ad78ad2df37ac2bde0f4def964b7bc926782775763eb7"
+        },
+        "model_config": "0ba72cbf0ec684b897a234af39d95684ba7d39b86acea9ad952f4e1ce8e76808",
+        "model_sdf": "8ca20acc01547394d9f0a3e5c914c85d3f257a3e809f7e5de35eb2fdb72ed31c",
+        "referenced_meshes": {
+          "OpenRobotics/Jersey Barrier/meshes/jersey_barrier.dae": "4a32cf46cd5d82ba21add31465e37a2b57b7b0403364f94fc5a47379feed7a34"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Jersey Barrier"
+    },
+    "OpenRobotics/KitchenCountertop": {
+      "converted_model_dir": "OpenRobotics/KitchenCountertop",
+      "local_path": "OpenRobotics/KitchenCountertop",
+      "mesh_assets": [
+        {
+          "converted_file": "OpenRobotics/KitchenCountertop/meshes/KitchenCountertop.obj",
+          "converted_uri": "meshes/KitchenCountertop.obj",
+          "original_uri": "meshes/KitchenCountertop.obj",
+          "source_file": "OpenRobotics/KitchenCountertop/meshes/KitchenCountertop.obj",
+          "usages": [
+            "collision",
+            "visual"
+          ]
+        }
+      ],
+      "model_sdf": "OpenRobotics/KitchenCountertop/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "OpenRobotics/KitchenCountertop",
+      "raw_tree_sha256": {
+        ".DS_Store": "1fda937a96a136cd69829d6c28b2e5943f9c7b00e1a360c50cf2e37428bfe76d",
+        "meshes/KitchenCountertop.mtl": "7a7eeca9f98d6279f24976cef4a75fff852b674ddaf446823f6b33ca8ca5c0ee",
+        "meshes/KitchenCountertop.obj": "f7338794d9086050ad8f5341eb85e98b44f17ecba6bf552ec886f8575245e515",
+        "meshes/KitchenCountertop_Diffuse.png": "7537466b470b0ae255eae616991f0b6f853e15aba05e295cb1170cea3238c304",
+        "model.config": "a4b2beee35d731cd1f72f4ef8fec166e63842a7d583538e0fd1b42b8f61939f7",
+        "model.sdf": "d9c38ec8cb25ad9c49af99a28d3fc14edd94bd0f679e839faa5cfd4591cbff69",
+        "thumbnails/1.png": "02d7d7697d027e4c691d318531d917accc75c389a457ca7ed93523ff80093038",
+        "thumbnails/2.png": "a37dc27e19f12bfb1e845f90dff7fa10819c1d607803d3c4449ef0643e33be6d",
+        "thumbnails/3.png": "4abc6dd9eddf554acf8792ac48b26fb48e53038dc4b4e7a6bf903300fd8997a8",
+        "thumbnails/4.png": "0cd81882a69f2d08d5c133bd7490356ad199aa4ee4c84216ae63ba3819a3692d",
+        "thumbnails/5.png": "e43f70f81e9c8c833f18ade67a98bb17d8bb4dab736d65e992fe15503cb06ed8"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "OpenRobotics/KitchenCountertop/meshes/KitchenCountertop.obj": "f7338794d9086050ad8f5341eb85e98b44f17ecba6bf552ec886f8575245e515"
+        },
+        "model_config": "a4b2beee35d731cd1f72f4ef8fec166e63842a7d583538e0fd1b42b8f61939f7",
+        "model_sdf": "d9c38ec8cb25ad9c49af99a28d3fc14edd94bd0f679e839faa5cfd4591cbff69",
+        "referenced_meshes": {
+          "OpenRobotics/KitchenCountertop/meshes/KitchenCountertop.obj": "f7338794d9086050ad8f5341eb85e98b44f17ecba6bf552ec886f8575245e515"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/KitchenCountertop"
+    },
+    "OpenRobotics/MaleVisitorOnPhone": {
+      "converted_model_dir": "OpenRobotics/MaleVisitorOnPhone",
+      "local_path": "OpenRobotics/MaleVisitorOnPhone",
+      "mesh_assets": [
+        {
+          "converted_file": "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic.obj",
+          "converted_uri": "meshes/MaleVisitorStatic.obj",
+          "original_uri": "meshes/MaleVisitorStatic.obj",
+          "source_file": "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic.obj",
+          "usages": [
+            "visual"
+          ]
+        },
+        {
+          "converted_file": "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_Col.obj",
+          "converted_uri": "meshes/MaleVisitorStatic_Col.obj",
+          "original_uri": "meshes/MaleVisitorStatic_Col.obj",
+          "source_file": "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_Col.obj",
+          "usages": [
+            "collision"
+          ]
+        }
+      ],
+      "model_sdf": "OpenRobotics/MaleVisitorOnPhone/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "OpenRobotics/MaleVisitorOnPhone",
+      "raw_tree_sha256": {
+        ".DS_Store": "a4fb7b365123911ce6c2590a72eb771728fbbd459bbac734ed6a0d0051afeb23",
+        "meshes/MaleVisitor.png": "664169d68e9f792beedb9c5fb90f65f47d3bfb674605f37d54679e3fcb6d3b3d",
+        "meshes/MaleVisitorStatic.mtl": "859499b3eebd371fecb18f4d8d1c6db0630341ab461aa22a566991f841d2b80a",
+        "meshes/MaleVisitorStatic.obj": "5a5508f4adf0b69df858727b8dbce97fc6e735f35c72da9aaf0fc7b364e20db3",
+        "meshes/MaleVisitorStatic_Col.mtl": "5ea6cd44f150bbb4fff10386acdf556c56113d5d8d79af3b1fff2d6199b32200",
+        "meshes/MaleVisitorStatic_Col.obj": "feded16115d772d51b75be16941e5ee376cd92bf1aee6b84f4d21fac4dc47878",
+        "meshes/Phone.png": "b60b4b932a7232d5449e846caed572f68c2755e0de3dc09da2e7dc622158bda9",
+        "model.config": "e3c8edaa7c1cb0fd73af43386f83c2571553cfcf1975ca86e0ecb540df6448a2",
+        "model.sdf": "0c05423e091a0812f6544ccd1426aebd2abc9cf49dad737ccef1f605dfb39530",
+        "thumbnails/1.png": "6ea241f8abf5d9ccde57b220afa9bd18a7c749a7f3a7778faf45e7bd8c8c55ec",
+        "thumbnails/2.png": "c97af6c0b7563f950114402aae9e073a98ec36e58da35496d6aeb00a69662c83",
+        "thumbnails/3.png": "abb9cd0e6c0d43c27846094a34e3551663def8a836b3d7315e9d689b36bf2965",
+        "thumbnails/4.png": "c31d17917c64f2d2f139fb85a174bb6f27fe3000f25776c2174b572adbe55d11",
+        "thumbnails/5.png": "03a19ae04e9066f81647c8e7c47fe035998d690430b66432be00a3a3b5801c41"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic.obj": "5a5508f4adf0b69df858727b8dbce97fc6e735f35c72da9aaf0fc7b364e20db3",
+          "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_Col.obj": "feded16115d772d51b75be16941e5ee376cd92bf1aee6b84f4d21fac4dc47878"
+        },
+        "model_config": "e3c8edaa7c1cb0fd73af43386f83c2571553cfcf1975ca86e0ecb540df6448a2",
+        "model_sdf": "0c05423e091a0812f6544ccd1426aebd2abc9cf49dad737ccef1f605dfb39530",
+        "referenced_meshes": {
+          "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic.obj": "5a5508f4adf0b69df858727b8dbce97fc6e735f35c72da9aaf0fc7b364e20db3",
+          "OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_Col.obj": "feded16115d772d51b75be16941e5ee376cd92bf1aee6b84f4d21fac4dc47878"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/MaleVisitorOnPhone"
+    },
+    "OpenRobotics/Table": {
+      "converted_model_dir": "OpenRobotics/Table",
+      "local_path": "OpenRobotics/Table",
+      "mesh_assets": [],
+      "model_sdf": "OpenRobotics/Table/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "OpenRobotics/Table",
+      "raw_tree_sha256": {
+        ".DS_Store": "499e31a0ee08561b355c1ea45c0af26a71560489cda7ec502ad72727d18ee90b",
+        "Table_Diffuse.jpg": "d9891a81facea4747cf7b2b9c8891c0cadca50613b677bb8cab7ed5a8a601d23",
+        "model-1_2.sdf": "bf88c3ab3b045a307c681cbca58e677087e28195beefff418a704b4950579a65",
+        "model-1_3.sdf": "e524f0ab1225fbe90e69994895e3640d5be1f63ab25f955de9c7293ef80cdeb9",
+        "model-1_4.sdf": "f528ee4128390c49e8c83abcd45d4bb87abc80adefa0da620575f3615a517247",
+        "model.config": "135367bc4c08ce4757a069ad78f0f8d09868e645ba263fac6660ab34dc3cf3aa",
+        "model.sdf": "99fb1778308e10e4c28bf66238e17fc6feef78bc6898c3ab40adfaea6613c2e6",
+        "thumbnails/1.png": "7a7e9f0340cc5e6c3e9afd7b77b2dd7b18e0cc8faafbf314f946c2ef10621aa6",
+        "thumbnails/2.png": "743fe45be0dbdc9444c26596f51365e2f43c26825938dfe534b892da52fca4f3",
+        "thumbnails/3.png": "4d359f13ff490a6826456ea53b3389c16440c291188b0481eab7cbb499a0044e",
+        "thumbnails/4.png": "59c58cb5b244b30c8e2b2410689016f57d59f1ae3b0af6e226915fc5e6aca1f1",
+        "thumbnails/5.png": "092be99ebbbc048b2cb618624bb0beaedf49ef7f48ef71a95f360e107efb470f"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {},
+        "model_config": "135367bc4c08ce4757a069ad78f0f8d09868e645ba263fac6660ab34dc3cf3aa",
+        "model_sdf": "99fb1778308e10e4c28bf66238e17fc6feef78bc6898c3ab40adfaea6613c2e6",
+        "referenced_meshes": {},
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [
+        "file://media/materials/scripts/gazebo.material",
+        "https://fuel.gazebosim.org/1.0/openrobotics/models/table/4/files/Table_Diffuse.jpg"
+      ],
+      "unresolved_texture_uris": [
+        "file://media/materials/scripts/gazebo.material",
+        "https://fuel.gazebosim.org/1.0/openrobotics/models/table/4/files/Table_Diffuse.jpg"
+      ],
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table"
+    },
+    "OpenRobotics/Warehouse": {
+      "converted_model_dir": "OpenRobotics/Warehouse",
+      "local_path": "OpenRobotics/Warehouse",
+      "mesh_assets": [
+        {
+          "converted_file": "OpenRobotics/Warehouse/meshes/warehouse.obj",
+          "converted_uri": "meshes/warehouse.obj",
+          "original_uri": "meshes/warehouse.dae",
+          "source_file": "OpenRobotics/Warehouse/meshes/warehouse.dae",
+          "usages": [
+            "visual"
+          ]
+        },
+        {
+          "converted_file": "OpenRobotics/Warehouse/meshes/warehouse_colision.stl",
+          "converted_uri": "meshes/warehouse_colision.stl",
+          "original_uri": "meshes/warehouse_colision.stl",
+          "source_file": "OpenRobotics/Warehouse/meshes/warehouse_colision.stl",
+          "usages": [
+            "collision"
+          ]
+        }
+      ],
+      "model_sdf": "OpenRobotics/Warehouse/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "OpenRobotics/Warehouse",
+      "raw_tree_sha256": {
+        ".DS_Store": "93294f19b7034d31fabe6f2355d9241edc32f1df362b93af2fe6e099bd8c3d7a",
+        "meshes/Asphalt010_1K_Color.jpg": "95ddb95c812e6633a018f164b389ff4fe5488fefd85f177e617ea4a32f79fe7e",
+        "meshes/Rough_Square_Concrete_Block.jpg": "6b69ae3b6987d85103c2edf2810968c472fa0d456027c78c778c311272781e6d",
+        "meshes/Tape001_1K_Color.png": "c4975a44b4b7cc32838319b6ffa4e615f2640893374ae812bf9626b0680afdbb",
+        "meshes/Terrazzo005_1K_Color.jpg": "e312b966741d492a2f507981093124ac005a63e562ef93b2d3b5ac6754d04582",
+        "meshes/ground.png": "6f128ff6d25c1881f72f193856959821c6d0704410dbdd77170a9a5830b912ab",
+        "meshes/warehouse.dae": "6ddfd0d97416e0af94a1087d25dcb313aee93992ed949c14e5ac671a3531fc52",
+        "meshes/warehouse_colision.stl": "78fa7f71edc7ec8347e647ca29a0f347036f8a9c253e502e74f8fc6e1180e0e8",
+        "model.config": "4112eae762973474b0d79ad711ad3682c34f36c0ed6185df2e85da39eb3dd227",
+        "model.sdf": "8a2a1e3cf36d53d676841455c3d244a616230a584f81f6327542063c32973c24",
+        "thumbnails/1.png": "d548366b41ce042eedde08c56f1c3b590dacab55daa7084ca0e5920852e65b40",
+        "thumbnails/2.png": "073a1ab2b1fd34744545d0a3212a8a6710c8f8ac8f91941fc04cf13038594655",
+        "thumbnails/3.png": "df3d830d4c25f636125f0041f07f56a5cd14ab0a6b180dec00f775149a07e145",
+        "thumbnails/4.png": "9348233df58574c58a1fc956532b5017abf195745e8952d43b4ff9b95032ec95"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "OpenRobotics/Warehouse/meshes/warehouse.obj": "f6afc177488670225d63be85f168ec64c828370599956a1bc49daaa7a15ea4ed",
+          "OpenRobotics/Warehouse/meshes/warehouse_colision.stl": "78fa7f71edc7ec8347e647ca29a0f347036f8a9c253e502e74f8fc6e1180e0e8"
+        },
+        "model_config": "4112eae762973474b0d79ad711ad3682c34f36c0ed6185df2e85da39eb3dd227",
+        "model_sdf": "8a2a1e3cf36d53d676841455c3d244a616230a584f81f6327542063c32973c24",
+        "referenced_meshes": {
+          "OpenRobotics/Warehouse/meshes/warehouse.dae": "6ddfd0d97416e0af94a1087d25dcb313aee93992ed949c14e5ac671a3531fc52",
+          "OpenRobotics/Warehouse/meshes/warehouse_colision.stl": "78fa7f71edc7ec8347e647ca29a0f347036f8a9c253e502e74f8fc6e1180e0e8"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Warehouse"
+    },
+    "OpenRobotics/foldable_chair": {
+      "converted_model_dir": "OpenRobotics/foldable_chair",
+      "local_path": "OpenRobotics/foldable_chair",
+      "mesh_assets": [
+        {
+          "converted_file": "OpenRobotics/foldable_chair/mesh/foldable_chair.obj",
+          "converted_uri": "mesh/foldable_chair.obj",
+          "original_uri": "mesh/foldable_chair.dae",
+          "source_file": "OpenRobotics/foldable_chair/mesh/foldable_chair.dae",
+          "usages": [
+            "visual"
+          ]
+        }
+      ],
+      "model_sdf": "OpenRobotics/foldable_chair/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "OpenRobotics/foldable_chair",
+      "raw_tree_sha256": {
+        ".DS_Store": "1fda937a96a136cd69829d6c28b2e5943f9c7b00e1a360c50cf2e37428bfe76d",
+        "mesh/foldable_chair.dae": "fd035ca9ddf21ffc6757bb6d5a794be5299df6329b8f1574945826ec3fe66345",
+        "mesh/foldable_chair.png": "d120f8068d09dd91bd3fde4401406cdf4c620dfb529bcbb535827532f4632a3a",
+        "model.config": "50e6d163666f7d591097dc6648e638cfdb7a5dc9c132f7e3547792362d8d20d7",
+        "model.sdf": "aee1f51c36c70511283b0357d3b396c95edb024c0019f1c1cf0be40fe5dc04dd",
+        "thumbnails/1.png": "44d669a7e29f31412d3835ea6281f32307f1889822010e3801a2997fa7231ceb",
+        "thumbnails/2.png": "0b309b88735f6ed4f3cdfdf26bd0a6fe279e6b3c66a770991a021bd732a08973",
+        "thumbnails/3.png": "39aeef8cece94535bc7ebaefc455ae23a0d0ff8aa3e16fdd208abbd325c39191",
+        "thumbnails/4.png": "0098616c70ccab3df49556ce921c8a77875b5db26dd68e71ea79d56db0fde183",
+        "thumbnails/5.png": "015e2a54045ac81e0c813c227676599966193f854cb62ceaf83ae2d96e314ddc"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "OpenRobotics/foldable_chair/mesh/foldable_chair.obj": "cb8cf09da514c22033eba66e14b4862a03a4f10905f19cacb9ec2a161ef350eb"
+        },
+        "model_config": "50e6d163666f7d591097dc6648e638cfdb7a5dc9c132f7e3547792362d8d20d7",
+        "model_sdf": "aee1f51c36c70511283b0357d3b396c95edb024c0019f1c1cf0be40fe5dc04dd",
+        "referenced_meshes": {
+          "OpenRobotics/foldable_chair/mesh/foldable_chair.dae": "fd035ca9ddf21ffc6757bb6d5a794be5299df6329b8f1574945826ec3fe66345"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/foldable_chair"
+    },
+    "local/orangeball": {
+      "converted_model_dir": "local/orangeball",
+      "local_path": "local/orangeball",
+      "mesh_assets": [],
+      "model_sdf": "local/orangeball/orangeball.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "local/orangeball",
+      "raw_tree_sha256": {
+        "model.config": "7aa22ea87b11e27c3aae639ef468945b68158aad990664b55ee051c22486d063",
+        "orangeball.sdf": "706c8afef53d6ddc02b655e8f4f95a2e3ed09d53cf8e74a4cc566e7d0e4f6367"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {},
+        "model_config": "7aa22ea87b11e27c3aae639ef468945b68158aad990664b55ee051c22486d063",
+        "model_sdf": "706c8afef53d6ddc02b655e8f4f95a2e3ed09d53cf8e74a4cc566e7d0e4f6367",
+        "referenced_meshes": {},
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "file:///home/nartech/nartech_ws/src/nartech_ros/worlds/objects/orangeball"
+    },
+    "openrobotics/Cardboard box": {
+      "converted_model_dir": "openrobotics/Cardboard box",
+      "local_path": "openrobotics/Cardboard box",
+      "mesh_assets": [
+        {
+          "converted_file": "openrobotics/Cardboard box/meshes/cardboard_box.obj",
+          "converted_uri": "meshes/cardboard_box.obj",
+          "original_uri": "meshes/cardboard_box.dae",
+          "source_file": "openrobotics/Cardboard box/meshes/cardboard_box.dae",
+          "usages": [
+            "visual"
+          ]
+        }
+      ],
+      "model_sdf": "openrobotics/Cardboard box/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "openrobotics/Cardboard box",
+      "raw_tree_sha256": {
+        ".DS_Store": "1fda937a96a136cd69829d6c28b2e5943f9c7b00e1a360c50cf2e37428bfe76d",
+        "materials/textures/cardboard_box.png": "b58d89413faef28df1efe51c72ca52ced517dc445fca350514311613b47a6ce6",
+        "meshes/cardboard_box.dae": "abb3c56caec5879f1d862e405a26e32a6f14edbb922f93b3445517e33174b8c8",
+        "model.config": "65d9536b5a96a4fc700b54efdc46d74339a929660bfc17bad43b835167328120",
+        "model.sdf": "a54ff1756eee048597ce94ecdff1d837f157b58a9bdc7e92b4ff264916078d84",
+        "thumbnails/1.png": "19b5cf8322faa20aa3a866ae1eb9959971b635bc2c9c2f711b2ff22858b938be",
+        "thumbnails/2.png": "461920f3140c95b4b0fccb4e75dcb9dd55a95b519fb37dc6fc4a0c3c5615c261",
+        "thumbnails/3.png": "ae57f1efba4b4011ef78f331182961b2888876e2cd9ab66079468b3797a6b42b",
+        "thumbnails/4.png": "f6dfd6165445447dc2b974c4282933f682984df0b3958c8b4f526173bb72214e",
+        "thumbnails/5.png": "ae57f1efba4b4011ef78f331182961b2888876e2cd9ab66079468b3797a6b42b"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "openrobotics/Cardboard box/meshes/cardboard_box.obj": "79b0077ed673b8e0c561045ee345bb3682c32dd38f3e1850abea2b419719108e"
+        },
+        "model_config": "65d9536b5a96a4fc700b54efdc46d74339a929660bfc17bad43b835167328120",
+        "model_sdf": "a54ff1756eee048597ce94ecdff1d837f157b58a9bdc7e92b4ff264916078d84",
+        "referenced_meshes": {
+          "openrobotics/Cardboard box/meshes/cardboard_box.dae": "abb3c56caec5879f1d862e405a26e32a6f14edbb922f93b3445517e33174b8c8"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/openrobotics/models/Cardboard box"
+    },
+    "plateau/Casual female": {
+      "converted_model_dir": "plateau/Casual female",
+      "local_path": "plateau/Casual female",
+      "mesh_assets": [
+        {
+          "converted_file": "plateau/Casual female/meshes/casual_female.obj",
+          "converted_uri": "meshes/casual_female.obj",
+          "original_uri": "meshes/casual_female.dae",
+          "source_file": "plateau/Casual female/meshes/casual_female.dae",
+          "usages": [
+            "visual"
+          ]
+        }
+      ],
+      "model_sdf": "plateau/Casual female/model.sdf",
+      "nested_includes": [],
+      "raw_model_dir": "plateau/Casual female",
+      "raw_tree_sha256": {
+        ".DS_Store": "9bf48461df613543a98e8b29ed7dcbd8fa43c75732a8cfe1e80cf5e33f458c20",
+        "materials/textures/brown_eye.png": "4659691c7295ad6206c78b003e5fd0e5f91dcd53032fa914a229bb48cabe424b",
+        "materials/textures/casual_female.png": "75bce8773b7fbaca854d4f7e3f6b7bef20dbbc38b027e529e026c675d619531e",
+        "materials/textures/eyebrow002.png": "1de4e4cb69b3f4324390219ffbeb17a0b2555104d3211d1ac667655b69b64038",
+        "materials/textures/eyelashes01.png": "4b69c0fff2648874460e9caf80c31413c444218a5c50afebc425aeaa65484a35",
+        "materials/textures/female_casualsuit01_diffuse.png": "414d46afa55fba09ad0913484d57df2ba6b597dc8193595a13a12436137dc21b",
+        "materials/textures/female_casualsuit01_normal.png": "7bff7afbbc3f068e06f69abcddc8c2c9ce667ec181e0f2a918f8af78eba12610",
+        "materials/textures/female_casualsuit02_diffuse.png": "23bd3c8e4df3993fe3bdb849daba7a4dd0476f3a28fd8402cd28abbb26666f49",
+        "materials/textures/female_casualsuit02_normal.png": "37143dabd78647ca37689f0b65d969c958a962d728dffd94e60c9beacf76a3df",
+        "materials/textures/ponytail01_diffuse.png": "dcb364300cac06ce8bef91b2f7c0970baf310898bbdd06b0c6b884ee9306eb97",
+        "materials/textures/shoes05_diffuse.png": "7fe5ea2600f6578cdf017da3392ae13aedabea8e8cc1dd6302a8f57e8fb7e5af",
+        "materials/textures/tongue01_diffuse.png": "3150be398e48e8ba1feac164c3143c16c0b2e959d9ffb6155f0171f59cfb4ea9",
+        "materials/textures/young_lightskinned_female_diffuse.png": "b2a6ac8cd4f9febdb447368e29c76cd68410bb66e46d9dcfa2d5f75126eea8fc",
+        "meshes/casual_female.dae": "b0f47228b4a1cfa5026f24f5955d5f2b7cc7f7a770888951041a787b3e51d994",
+        "model.config": "19d1bdb5e4a769c9dc48c21ffe9dd5c9c4cb20a198afabe229c2475f2ac9b771",
+        "model.sdf": "70a3a24f3b80f6bbd780a05a5a2c10d974e2928bbc50427bb54fcbb000b05222",
+        "thumbnails/1.png": "2a2934422ead27a15934b65889e14099227495e2cda913bb3c4727f3875e8bf9",
+        "thumbnails/2.png": "5fe50285923d76b97bb767e3bde5d3cd5b5e115a32a8651696dc6eb68642a627",
+        "thumbnails/3.png": "f725a9ace69ba680d8e92c7967fe4ff866cebe62a4e46e5766e5359a4c5bc9c0",
+        "thumbnails/4.png": "5cb8edc4c74c64fe13a08db35cade3d41ebff088e1bf574409f9249af6b113d3",
+        "thumbnails/5.png": "0056e9d4c16716c1e98a4bc75ac09469de1b122b934a98507835b6bacdd5a572"
+      },
+      "resolved_version": "1.0",
+      "sha256": {
+        "converted_meshes": {
+          "plateau/Casual female/meshes/casual_female.obj": "189dd1ee27a944cc57ca59d293494283529595f440d7896bd282ebf0f14410e0"
+        },
+        "model_config": "19d1bdb5e4a769c9dc48c21ffe9dd5c9c4cb20a198afabe229c2475f2ac9b771",
+        "model_sdf": "70a3a24f3b80f6bbd780a05a5a2c10d974e2928bbc50427bb54fcbb000b05222",
+        "referenced_meshes": {
+          "plateau/Casual female/meshes/casual_female.dae": "b0f47228b4a1cfa5026f24f5955d5f2b7cc7f7a770888951041a787b3e51d994"
+        },
+        "referenced_textures": {}
+      },
+      "texture_asset_uris": [],
+      "unresolved_texture_uris": [],
+      "uri": "https://fuel.gazebosim.org/1.0/plateau/models/Casual female"
+    }
+  },
+  "raw_root": "/Users/anthony-trueagi/Documents/unitree_rl_gym/resources/scenes/narhouse_fuel/raw",
+  "world_sdf": "/Users/anthony-trueagi/Documents/nartech_ros/worlds/narhouse.sdf"
+}
