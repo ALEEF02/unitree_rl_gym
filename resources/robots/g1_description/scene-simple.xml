@@ -31,6 +31,24 @@
     <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
     
+    <!-- BEGIN OUTSIDE WALL -->
+    <body name="wall_out_1" pos="8 0 0.5">
+      <geom name="wall_geom_1" type="box" size="0.05 8.0 1.0" rgba="0.7 0.7 0.7 1"
+            contype="1" conaffinity="1"/>
+    </body>
+    <body name="wall_out_2" pos="-8 0 0.5">
+      <geom name="wall_geom_2" type="box" size="0.05 8.0 1.0" rgba="0.7 0.7 0.7 1"
+            contype="1" conaffinity="1"/>
+    </body>
+    <body name="wall_out_3" pos="0 8 0.5">
+      <geom name="wall_geom_3" type="box" size="8.0 0.05 1.0" rgba="0.7 0.7 0.7 1"
+            contype="1" conaffinity="1"/>
+    </body>
+    <body name="wall_out_4" pos="0 -8 0.5">
+      <geom name="wall_geom_4" type="box" size="8.0 0.05 1.0" rgba="0.7 0.7 0.7 1"
+            contype="1" conaffinity="1"/>
+    </body>
+    
         <!-- Static wall -->
     <body name="wall" pos="1.6 0 0.5">
       <geom name="wall_geom" type="box" size="0.05 1.0 1.0" rgba="0.7 0.7 0.7 1"

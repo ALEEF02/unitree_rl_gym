@@ -19,7 +19,7 @@
     <mesh name="mesh_7" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic.obj" inertia="shell" />
     <mesh name="mesh_8" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/MaleVisitorOnPhone/meshes/MaleVisitorStatic_Col.obj" inertia="shell" />
     <mesh name="mesh_9" file="../../../scenes/narhouse_fuel/converted/plateau/Casual female/meshes/casual_female_mj.obj" inertia="shell" />
-    <mesh name="mesh_10" file="../../../scenes/narhouse_fuel/converted/openrobotics/Cardboard box/meshes/cardboard_box.obj" scale="1.25931896 1.007455168 0.755591376" inertia="shell" />
+    <mesh name="mesh_10" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Cardboard box/meshes/cardboard_box.obj" scale="1.25931896 1.007455168 0.755591376" inertia="shell" />
     <mesh name="mesh_11" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/KitchenCountertop/meshes/KitchenCountertop.obj" inertia="shell" />
     <mesh name="mesh_12" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Fridge/meshes/Fridge.obj" inertia="shell" />
     <mesh name="mesh_13" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Fridge/meshes/Fridge_Col.obj" inertia="shell" />
@@ -65,8 +65,8 @@
     <mesh name="mesh_0__wall_col_3" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/warehouse_mjmat_wall_colcomp_3.obj" inertia="shell" />
     <texture type="2d" name="tex__mesh_0__wall" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Warehouse/meshes/Rough_Square_Concrete_Block.png" />
     <material name="mat__mesh_0__wall" texture="tex__mesh_0__wall" />
-    <mesh name="mesh_10__cardboardboxes" file="../../../scenes/narhouse_fuel/converted/openrobotics/Cardboard box/meshes/cardboard_box_mjmat_cardboardboxes.obj" scale="1.25931896 1.007455168 0.755591376" inertia="shell" />
-    <texture type="2d" name="tex__mesh_10__cardboardboxes" file="../../scenes/narhouse_fuel/converted/openrobotics/Cardboard box/materials/textures/cardboard_box.png" />
+    <mesh name="mesh_10__cardboardboxes" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/Cardboard box/meshes/cardboard_box_mjmat_cardboardboxes.obj" scale="1.25931896 1.007455168 0.755591376" inertia="shell" />
+    <texture type="2d" name="tex__mesh_10__cardboardboxes" file="../../scenes/narhouse_fuel/converted/OpenRobotics/Cardboard box/materials/textures/cardboard_box.png" />
     <material name="mat__mesh_10__cardboardboxes" texture="tex__mesh_10__cardboardboxes" />
     <mesh name="mesh_11__kitchencountertop" file="../../../scenes/narhouse_fuel/converted/OpenRobotics/KitchenCountertop/meshes/KitchenCountertop_mjmat_kitchencountertop.obj" inertia="shell" />
     <texture type="2d" name="tex__mesh_11__kitchencountertop" file="../../scenes/narhouse_fuel/converted/OpenRobotics/KitchenCountertop/meshes/KitchenCountertop_Diffuse.png" />
