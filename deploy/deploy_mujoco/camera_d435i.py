@@ -26,6 +26,7 @@ class D435iDepthSim:
         width: int = 640,
         height: int = 480,
         fps: float = 30.0, # These are the values used when aligning depth to RGB
+        rgb_fps: float | None = None,
 
         # Intrinsics: you should replace these with the actual intrinsics you read from the real D435i profile later.
         # The defaults below are "reasonable" for a 640x480 pinhole model; don't treat them as exact hardware values.
@@ -78,6 +79,13 @@ class D435iDepthSim:
             raise ValueError("fps must be > 0")
         self.frame_dt = 1.0 / self.fps
         self._accum_t = 0.0
+        self.rgb_fps = self.fps if rgb_fps is None else float(rgb_fps)
+        if self.rgb_fps <= 0.0:
+            raise ValueError("rgb_fps must be > 0")
+        self._rgb_frame_dt = 1.0 / self.rgb_fps
+        self._rgb_accum_t = 0.0
+        self._last_rgb_u8 = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        self._last_rgb_valid = False
 
         # Intrinsics defaults: derive from MuJoCo camera fovy so unprojection matches rendering
         fovy_deg = float(self.m.cam_fovy[self.cam_id])  # vertical FOV in degrees
@@ -177,6 +185,8 @@ class D435iDepthSim:
             "frames_emitted": 0,
             "sim_time_s": 0.0,
             "points_out": 0,
+            "rgb_renders": 0,
+            "rgb_reused_frames": 0,
             "t_render_depth_s": 0.0,
             "t_render_rgb_s": 0.0,
             "t_depth_model_s": 0.0,
@@ -196,6 +206,8 @@ class D435iDepthSim:
         stats["depth_mode"] = self.depth_generation_mode
         stats["points_per_sec"] = float(stats["points_out"]) / sim_time
         stats["points_per_frame_avg"] = float(stats["points_out"]) / frames
+        stats["rgb_effective_hz_sim"] = float(stats["rgb_renders"]) / sim_time
+        stats["rgb_render_ms_per_render"] = 1e3 * float(stats["t_render_rgb_s"]) / max(int(stats["rgb_renders"]), 1)
         stats["render_depth_ms_per_frame"] = 1e3 * float(stats["t_render_depth_s"]) / frames
         stats["render_rgb_ms_per_frame"] = 1e3 * float(stats["t_render_rgb_s"]) / frames
         stats["depth_model_ms_per_frame"] = 1e3 * float(stats["t_depth_model_s"]) / frames
@@ -293,8 +305,9 @@ class D435iDepthSim:
         depth = (2.0 * n * f) / (f + n - z_ndc * (f - n))
         return depth.astype(np.float32)
 
-    def _render_depth_m(self) -> np.ndarray:
-        self.renderer.update_scene(self.d, camera=self.cam_name)
+    def _render_depth_m(self, *, update_scene: bool = True) -> np.ndarray:
+        if update_scene:
+            self.renderer.update_scene(self.d, camera=self.cam_name)
 
         if self._renderer_has_depth_kw:
             depth = np.asarray(self.renderer.render(depth=True), dtype=np.float32)
@@ -312,8 +325,9 @@ class D435iDepthSim:
 
         return depth
 
-    def _render_rgb_u8(self) -> np.ndarray:
-        self.renderer.update_scene(self.d, camera=self.cam_name)
+    def _render_rgb_u8(self, *, update_scene: bool = True) -> np.ndarray:
+        if update_scene:
+            self.renderer.update_scene(self.d, camera=self.cam_name)
 
         if self._renderer_has_depth_kw:
             rgb = self.renderer.render()  # default is RGB
@@ -546,18 +560,34 @@ class D435iDepthSim:
         self._stats["steps"] += 1
         self._stats["sim_time_s"] += float(dt)
         self._accum_t += float(dt)
+        self._rgb_accum_t += float(dt)
         if self._accum_t < self.frame_dt:
             return None
         self._accum_t -= self.frame_dt
         self._stats["frames_emitted"] += 1
 
-        t0 = time.perf_counter()
-        depth_render_m = self._render_depth_m()
-        self._add_stat_time("t_render_depth_s", time.perf_counter() - t0)
+        # Render scene once per emitted camera frame, then run depth/rgb passes as needed.
+        self.renderer.update_scene(self.d, camera=self.cam_name)
 
         t0 = time.perf_counter()
-        rgb_u8 = self._render_rgb_u8()
-        self._add_stat_time("t_render_rgb_s", time.perf_counter() - t0)
+        depth_render_m = self._render_depth_m(update_scene=False)
+        self._add_stat_time("t_render_depth_s", time.perf_counter() - t0)
+
+        rgb_due = (not self._last_rgb_valid) or (self._rgb_accum_t >= self._rgb_frame_dt)
+        rgb_fresh = False
+        if rgb_due:
+            while self._rgb_accum_t >= self._rgb_frame_dt:
+                self._rgb_accum_t -= self._rgb_frame_dt
+            t0 = time.perf_counter()
+            rgb_u8 = self._render_rgb_u8(update_scene=False)
+            self._add_stat_time("t_render_rgb_s", time.perf_counter() - t0)
+            self._last_rgb_u8 = rgb_u8
+            self._last_rgb_valid = True
+            rgb_fresh = True
+            self._stats["rgb_renders"] += 1
+        else:
+            rgb_u8 = self._last_rgb_u8
+            self._stats["rgb_reused_frames"] += 1
 
         if self.depth_generation_mode == "raycast":
             # Legacy path: render range depth + raycast reconstruction for Z-depth image.
@@ -583,6 +613,7 @@ class D435iDepthSim:
             "depth_range_m": depth_range_m,
             "depth_mm_u16": depth_mm_u16,
             "rgb_u8": rgb_u8,
+            "rgb_fresh": rgb_fresh,
             "intrinsics": {
                 "fx": self.fx, "fy": self.fy,
                 "cx": self.cx, "cy": self.cy,

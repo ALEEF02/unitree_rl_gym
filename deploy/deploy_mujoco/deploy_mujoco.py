@@ -688,10 +688,16 @@ class D435iPublisher(Node):
 
         # ----- Images -----
         rgb = frame_dict.get("rgb_u8", None)
+        rgb_fresh = bool(frame_dict.get("rgb_fresh", True))
         depth_mm = frame_dict.get("depth_mm_u16", None)
 
-        rgb = rot90_cw(rgb)
-        depth_mm = rot90_cw(depth_mm)
+        if rgb is not None and rgb_fresh:
+            rgb = rot90_cw(rgb)
+        else:
+            rgb = None
+
+        if depth_mm is not None:
+            depth_mm = rot90_cw(depth_mm)
 
         # Use optical frame_id for images (most ROS stacks expect *_optical_frame)
         img_frame_id = self.frame_cam_optical
@@ -1268,6 +1274,7 @@ if __name__ == "__main__":
     parser.add_argument("--ros-odom-hz", type=float, default=None, help="Max /odom publish rate (Hz)")
     parser.add_argument("--ros-imu-hz", type=float, default=None, help="Max /imu publish rate (Hz)")
     parser.add_argument("--ros-joint-hz", type=float, default=None, help="Max /joint_states publish rate (Hz)")
+    parser.add_argument("--d435-rgb-hz", type=float, default=None, help="D435 RGB render/publish rate (Hz)")
     args = parser.parse_args()
 
     if args.show_sensors and args.headless:
@@ -1278,6 +1285,7 @@ if __name__ == "__main__":
     ros_odom_hz = args.ros_odom_hz
     ros_imu_hz = args.ros_imu_hz
     ros_joint_hz = args.ros_joint_hz
+    d435_rgb_hz = args.d435_rgb_hz
 
     if args.mapping_mode:
         if ros_clock_hz is None:
@@ -1290,6 +1298,8 @@ if __name__ == "__main__":
             ros_imu_hz = 100.0
         if ros_joint_hz is None:
             ros_joint_hz = 20.0
+        if d435_rgb_hz is None:
+            d435_rgb_hz = 5.0
 
     # Keep legacy default behavior unchanged: web UI on in legacy mode.
     enable_web_ui = (not args.mapping_mode) or bool(args.web_ui)
@@ -1385,6 +1395,7 @@ if __name__ == "__main__":
         mount_yaw_deg=0.0,
         raycast_stride=1,
         depth_generation_mode="render_fast" if args.mapping_mode else "raycast",
+        rgb_fps=d435_rgb_hz,
         profile_enabled=args.profile_runtime,
     )
 
@@ -1502,8 +1513,12 @@ if __name__ == "__main__":
                 f"sim_window={cam_stats['sim_time_s']:.3f}s frames={cam_stats['frames_emitted']} "
                 f"points_per_sec={cam_stats['points_per_sec']:.1f} "
                 f"pts/frame={cam_stats['points_per_frame_avg']:.1f} "
+                f"rgb_renders={cam_stats['rgb_renders']} "
+                f"rgb_reused={cam_stats['rgb_reused_frames']} "
+                f"rgb_hz_sim={cam_stats['rgb_effective_hz_sim']:.1f} "
                 f"ms/frame depth={cam_stats['render_depth_ms_per_frame']:.3f} "
                 f"rgb={cam_stats['render_rgb_ms_per_frame']:.3f} "
+                f"rgb/render={cam_stats['rgb_render_ms_per_render']:.3f} "
                 f"depth_model={cam_stats['depth_model_ms_per_frame']:.3f} "
                 f"depth_to_pc={cam_stats['depth_to_pc_ms_per_frame']:.3f} "
                 f"world_xform={cam_stats['world_transform_ms_per_frame']:.3f} "
@@ -1661,7 +1676,7 @@ if __name__ == "__main__":
             if frame is not None and frame.get("pointcloud_world") is not None:
                 last_cam_pts_world = frame["pointcloud_world"]
                 last_cam_cols = frame.get("point_colors_rgb", None)
-                if enable_web_ui and frame.get("rgb_u8") is not None:
+                if enable_web_ui and frame.get("rgb_u8") is not None and frame.get("rgb_fresh", True):
                     t1 = time.perf_counter()
                     try:
                         jpg = rgb_u8_to_jpeg_bytes(frame["rgb_u8"], quality=80)
