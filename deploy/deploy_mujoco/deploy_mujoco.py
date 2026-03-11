@@ -67,7 +67,6 @@ class MujocoROS2Bridge(Node):
         *,
         base_body_name="pelvis",
         livox_body_name="lidar_frame",
-        livox_site_name="livox_mid360",
         camera_body_name="depth_camera_frame",
         odom_frame="odom",
         base_frame="base_link",
@@ -126,15 +125,12 @@ class MujocoROS2Bridge(Node):
         # IDs from MJCF
         self.base_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, base_body_name)
         self.livox_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, livox_body_name)
-        self.livox_site_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SITE, livox_site_name)
         self.camera_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, camera_body_name)
 
         if self.base_body_id < 0:
             raise ValueError(f"Body '{base_body_name}' not found in MJCF")
         if self.livox_body_id < 0:
             raise ValueError(f"Body '{livox_body_name}' not found in MJCF")
-        if self.livox_site_id < 0:
-            raise ValueError(f"Site '{livox_site_name}' not found in MJCF")
         if self.camera_body_id < 0:
             raise ValueError(f"Body '{camera_body_name}' not found in MJCF")
 
@@ -485,19 +481,21 @@ class MujocoROS2Bridge(Node):
                 tfmsg.transform.rotation.z = float(q_wxyz[3])
                 self.tf_broadcaster.sendTransform(tfmsg)
 
-                # Publish the leveled scan frame from the LiDAR site origin.
-                # Translation follows the LiDAR sensor; rotation keeps yaw only.
-                p_scan_w = self.d.site_xpos[self.livox_site_id].copy()
-                R_w_scan = self.d.site_xmat[self.livox_site_id].reshape(3, 3).copy()
-                yaw = math.atan2(float(R_w_scan[1, 0]), float(R_w_scan[0, 0]))
+                # Publish a leveled base frame for scan production/consumption.
+                # Translation follows base_link; rotation keeps yaw only.
+                w, x, y, z = [float(v) for v in q_wxyz]
+                yaw = math.atan2(
+                    2.0 * (w * z + x * y),
+                    1.0 - 2.0 * (y * y + z * z),
+                )
                 half_yaw = 0.5 * yaw
                 tfmsg_level = TransformStamped()
                 tfmsg_level.header.stamp = stamp
                 tfmsg_level.header.frame_id = self.odom_frame
                 tfmsg_level.child_frame_id = self.scan_level_frame
-                tfmsg_level.transform.translation.x = float(p_scan_w[0])
-                tfmsg_level.transform.translation.y = float(p_scan_w[1])
-                tfmsg_level.transform.translation.z = float(p_scan_w[2])
+                tfmsg_level.transform.translation.x = float(p_w[0])
+                tfmsg_level.transform.translation.y = float(p_w[1])
+                tfmsg_level.transform.translation.z = float(p_w[2])
                 tfmsg_level.transform.rotation.w = math.cos(half_yaw)
                 tfmsg_level.transform.rotation.x = 0.0
                 tfmsg_level.transform.rotation.y = 0.0
