@@ -1399,7 +1399,8 @@ if __name__ == "__main__":
         max_points_per_frame=8000,   # start smaller for speed; raise once stable
         range_max=30.0,              # indoor-ish cap; raise if needed
         range_noise_sigma=0.02,
-        output_frame="site"
+        output_frame="world",
+        stabilize_roll_pitch=True,
     )
 
     # Depth Camera
@@ -1680,7 +1681,7 @@ if __name__ == "__main__":
                     t1 = time.perf_counter()
                     stamp = livox_stamp if livox_stamp is not None else livox_node.get_clock().now().to_msg()
 
-                    frame_id = "livox_mid360"
+                    frame_id = "world" if getattr(lidar, "output_frame", "site") == "world" else "livox_mid360"
                     pack_t0 = time.perf_counter()
                     msg = pointcloud2_from_xyz(
                         cloud,
@@ -1719,7 +1720,7 @@ if __name__ == "__main__":
                 draw_multiple_world_point_sets(
                     viewer, m, d,
                     lidar_site_id=lidar.site_id,
-                    lidar_points_site=last_lidar_pts_site if last_lidar_pts_site is not None else None,
+                    lidar_points_site=last_lidar_pts_site if (last_lidar_pts_site is not None and getattr(lidar, "output_frame", "site") == "site") else None,
                     lidar_radius=0.005,
                     lidar_max=1000,
                     cam_points_world=last_cam_pts_world if last_cam_pts_world is not None else None,

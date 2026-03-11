@@ -24,6 +24,7 @@ class LivoxMid360Sim:
         mount_pitch_deg: float = 2.3,     # tilt forward / nose-down (about +Y)
         mount_yaw_deg: float = 0.0,        # typically 0 unless you have yaw offset
         output_frame: str = "sensor",  # "sensor" | "site" | "world"
+        stabilize_roll_pitch: bool = True,
         # FOV: Horizontal 360°, Vertical -7°~52° :contentReference[oaicite:5]{index=5}
         v_fov_down_deg: float = -7.0,
         v_fov_up_deg: float = 52.0,
@@ -68,6 +69,7 @@ class LivoxMid360Sim:
         self.output_frame = output_frame.lower().strip()
         if self.output_frame not in ("sensor", "site", "world"):
             raise ValueError("output_frame must be one of: 'sensor', 'site', 'world'")
+        self.stabilize_roll_pitch = bool(stabilize_roll_pitch)
 
         self._has_multi_ray = hasattr(mujoco, "mj_multiRay")
         self._warned_mj_ray_fallback = False
@@ -269,7 +271,18 @@ class LivoxMid360Sim:
             dirs_site = self._dirs_site[:rays_to_cast]
             dirs_world = self._dirs_world[:rays_to_cast]
             np.matmul(dirs_sensor, self.R_site_sensor.T, out=dirs_site)
-            np.matmul(dirs_site, R_w_site.T, out=dirs_world)
+            if self.stabilize_roll_pitch:
+                yaw = math.atan2(float(R_w_site[1, 0]), float(R_w_site[0, 0]))
+                cy, sy = math.cos(yaw), math.sin(yaw)
+                R_w_cast = np.array(
+                    [[cy, -sy, 0.0],
+                     [sy,  cy, 0.0],
+                     [0.0, 0.0, 1.0]],
+                    dtype=np.float64,
+                )
+            else:
+                R_w_cast = R_w_site
+            np.matmul(dirs_site, R_w_cast.T, out=dirs_world)
             self._stats["t_transform_s"] += time.perf_counter() - t0
 
             t0 = time.perf_counter()
