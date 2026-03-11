@@ -69,6 +69,7 @@ class MujocoROS2Bridge(Node):
         camera_body_name="depth_camera_frame",
         odom_frame="odom",
         base_frame="base_link",
+        scan_level_frame="base_scan_level",
         livox_frame="livox_frame",
         camera_frame="camera_link",
         cmd_vel_topic="/unitree/cmd_vel",
@@ -112,6 +113,7 @@ class MujocoROS2Bridge(Node):
         # Frames
         self.odom_frame = odom_frame
         self.base_frame = base_frame
+        self.scan_level_frame = scan_level_frame
         self.livox_frame = livox_frame
         self.camera_frame = camera_frame
         self.cmd_lock = cmd_lock
@@ -477,6 +479,27 @@ class MujocoROS2Bridge(Node):
                 tfmsg.transform.rotation.y = float(q_wxyz[2])
                 tfmsg.transform.rotation.z = float(q_wxyz[3])
                 self.tf_broadcaster.sendTransform(tfmsg)
+
+                # Publish a leveled base frame for scan production/consumption.
+                # Translation follows base_link; rotation keeps yaw only.
+                w, x, y, z = [float(v) for v in q_wxyz]
+                yaw = math.atan2(
+                    2.0 * (w * z + x * y),
+                    1.0 - 2.0 * (y * y + z * z),
+                )
+                half_yaw = 0.5 * yaw
+                tfmsg_level = TransformStamped()
+                tfmsg_level.header.stamp = stamp
+                tfmsg_level.header.frame_id = self.odom_frame
+                tfmsg_level.child_frame_id = self.scan_level_frame
+                tfmsg_level.transform.translation.x = float(p_w[0])
+                tfmsg_level.transform.translation.y = float(p_w[1])
+                tfmsg_level.transform.translation.z = float(p_w[2])
+                tfmsg_level.transform.rotation.w = math.cos(half_yaw)
+                tfmsg_level.transform.rotation.x = 0.0
+                tfmsg_level.transform.rotation.y = 0.0
+                tfmsg_level.transform.rotation.z = math.sin(half_yaw)
+                self.tf_broadcaster.sendTransform(tfmsg_level)
                 self._stats["tf_msgs"] += 1
                 self._add_stat_time("t_tf_s", time.perf_counter() - t0)
 
@@ -1289,11 +1312,11 @@ if __name__ == "__main__":
 
     if args.mapping_mode:
         if ros_clock_hz is None:
-            ros_clock_hz = 50.0
+            ros_clock_hz = 100.0
         if ros_tf_hz is None:
-            ros_tf_hz = 30.0
+            ros_tf_hz = 100.0
         if ros_odom_hz is None:
-            ros_odom_hz = 30.0
+            ros_odom_hz = 100.0
         if ros_imu_hz is None:
             ros_imu_hz = 100.0
         if ros_joint_hz is None:
@@ -1624,12 +1647,10 @@ if __name__ == "__main__":
             sim_stamp = None
             sim_stamp_ns = None
             if ros_bridge is not None:
-                # Use wall-clock timestamping for ROS messages to keep freshness checks
-                # in downstream stacks (e.g. Nav2 timing gates) aligned.
-                sim_stamp_ns = time.time_ns()
+                # Use authoritative simulation time for all ROS messages and TF.
+                sec, nsec = sim_time_to_sec_nsec(sim_time)
+                sim_stamp_ns = int(sec) * 1_000_000_000 + int(nsec)
                 sim_stamp = ros_bridge.get_clock().now().to_msg()
-                sec = int(sim_stamp_ns // 1_000_000_000)
-                nsec = int(sim_stamp_ns % 1_000_000_000)
                 sim_stamp.sec = sec
                 sim_stamp.nanosec = nsec
 
