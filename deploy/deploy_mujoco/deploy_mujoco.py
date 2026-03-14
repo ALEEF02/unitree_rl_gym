@@ -27,7 +27,7 @@ try:
     from rosgraph_msgs.msg import Clock
     from sensor_msgs.msg import JointState, Imu
     from nav_msgs.msg import Odometry
-    from geometry_msgs.msg import TransformStamped, Twist
+    from geometry_msgs.msg import PoseStamped, TransformStamped, Twist
     from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
     ROS2_ENABLED = True
 except Exception:
@@ -89,7 +89,14 @@ class MujocoROS2Bridge(Node):
         self.d = d
         self.p = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_12dof.urdf")).expanduser().resolve()
         self.p29 = Path(str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_29dof.urdf")).expanduser().resolve()
-        
+        self.p29h = Path(
+            str(Path(LEGGED_GYM_ROOT_DIR) / "resources/robots/g1_description/g1_29dof_with_hand_rev_1_0.urdf")
+        ).expanduser().resolve()
+        self.is_with_hand_model = (
+            mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_JOINT, "right_hand_thumb_0_joint") >= 0
+        )
+        self.robot_description_path = self.p29h if self.is_with_hand_model else self.p
+
         # QoS: sensor-style (best effort, low latency)
         qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -110,6 +117,8 @@ class MujocoROS2Bridge(Node):
 
         # Description
         self.pub_robot_description = self.create_publisher(String, "/robot_description", 1)
+        self._robot_description_period = 1.0
+        self._last_robot_description_t = -1e12
 
         # Frames
         self.odom_frame = odom_frame
@@ -158,26 +167,39 @@ class MujocoROS2Bridge(Node):
         self._last_imu_t = -1e12
         self._last_joint_t = -1e12
 
-        # MuJoCo joint names present in this MJCF
-        mj_joints = set()
-        for jid in range(self.m.njnt):
-            name = mujoco.mj_id2name(self.m, mujoco.mjtObj.mjOBJ_JOINT, jid)
-            if name:
-                mj_joints.add(name)
+        self.placeholder_joint_names = []
+        if not self.is_with_hand_model:
+            mj_joints = set()
+            for jid in range(self.m.njnt):
+                name = mujoco.mj_id2name(self.m, mujoco.mjtObj.mjOBJ_JOINT, jid)
+                if name:
+                    mj_joints.add(name)
 
-        # URDF movable joints (includes upper body joints in 29dof URDF)
-        urdf_movable = self._parse_urdf_movable_joint_names(str(self.p29))
-
-        # Joints that exist in URDF but not in MuJoCo -> placeholders
-        self.placeholder_joint_names = [jn for jn in urdf_movable if jn not in mj_joints]
-
-        # You can also optionally exclude the floating base joint if it exists in URDF
-        # (some URDFs do not include it as a "joint" in the same way)
-        self.placeholder_joint_names = [
-            jn for jn in self.placeholder_joint_names
-            if jn != "floating_base_joint"
-        ]
+            urdf_movable = self._parse_urdf_movable_joint_names(str(self.p29))
+            self.placeholder_joint_names = [jn for jn in urdf_movable if jn not in mj_joints]
+            self.placeholder_joint_names = [
+                jn for jn in self.placeholder_joint_names
+                if jn != "floating_base_joint"
+            ]
         print(f"[upper-body placeholder] {len(self.placeholder_joint_names)} placeholder joints")
+
+        self.arm_goal_lock = threading.Lock()
+        self._arm_goal_seq = 0
+        self._arm_goal_msg = None
+        self._arm_status = "IDLE"
+        self._hand_command_seq = 0
+        self._hand_command = "open"
+        self._hand_state = "OPEN"
+        self._grasped_object_label = ""
+        self.pub_arm_status = None
+        self.pub_hand_state = None
+        self.pub_grasp_label = None
+        if self.is_with_hand_model:
+            self.pub_arm_status = self.create_publisher(String, "/unitree/right_arm/status", 10)
+            self.pub_hand_state = self.create_publisher(String, "/unitree/right_hand/state", 10)
+            self.pub_grasp_label = self.create_publisher(String, "/unitree/grasped_object_label", 10)
+            self.sub_arm_goal = self.create_subscription(PoseStamped, "/unitree/right_arm/goal_pose", self._arm_goal_cb, 10)
+            self.sub_hand_command = self.create_subscription(String, "/unitree/right_hand/command", self._hand_command_cb, 10)
 
         self.cmd_sub = None
         if self.cmd_lock is not None and self.cmd_shared is not None:
@@ -270,6 +292,84 @@ class MujocoROS2Bridge(Node):
         # <joint name="..." type="...">
         matches = re.findall(r'<joint\s+name="([^"]+)"\s+type="([^"]+)"', txt)
         return [name for (name, jtype) in matches if jtype.strip().lower() != "fixed"]
+
+    def _arm_goal_cb(self, msg: PoseStamped):
+        with self.arm_goal_lock:
+            self._arm_goal_msg = msg
+            self._arm_goal_seq += 1
+            self._arm_status = "BUSY"
+
+    def _hand_command_cb(self, msg: String):
+        command = str(msg.data).strip().lower()
+        if command not in ("open", "close"):
+            self.get_logger().warn(f"Ignoring unknown right hand command: {msg.data!r}")
+            return
+        with self.arm_goal_lock:
+            self._hand_command = command
+            self._hand_command_seq += 1
+            self._hand_state = "MOVING"
+
+    def get_manipulation_commands(self) -> dict:
+        with self.arm_goal_lock:
+            if self._arm_goal_msg is None:
+                arm_goal = None
+            else:
+                arm_goal = {
+                    "frame_id": self._arm_goal_msg.header.frame_id,
+                    "position": np.array(
+                        [
+                            self._arm_goal_msg.pose.position.x,
+                            self._arm_goal_msg.pose.position.y,
+                            self._arm_goal_msg.pose.position.z,
+                        ],
+                        dtype=np.float64,
+                    ),
+                    "orientation": np.array(
+                        [
+                            self._arm_goal_msg.pose.orientation.w,
+                            self._arm_goal_msg.pose.orientation.x,
+                            self._arm_goal_msg.pose.orientation.y,
+                            self._arm_goal_msg.pose.orientation.z,
+                        ],
+                        dtype=np.float64,
+                    ),
+                    "seq": int(self._arm_goal_seq),
+                }
+            return {
+                "arm_goal": arm_goal,
+                "hand_command": str(self._hand_command),
+                "hand_command_seq": int(self._hand_command_seq),
+            }
+
+    def set_arm_status(self, status: str):
+        with self.arm_goal_lock:
+            self._arm_status = str(status).strip().upper() or "IDLE"
+
+    def set_hand_state(self, state: str):
+        with self.arm_goal_lock:
+            self._hand_state = str(state).strip().upper() or "OPEN"
+
+    def set_grasped_object_label(self, label: str):
+        with self.arm_goal_lock:
+            self._grasped_object_label = str(label).strip()
+
+    def _publish_string(self, publisher, data: str):
+        if publisher is None:
+            return
+        msg = String()
+        msg.data = str(data)
+        publisher.publish(msg)
+
+    def publish_manipulation_state(self):
+        if not self.is_with_hand_model:
+            return
+        with self.arm_goal_lock:
+            arm_status = self._arm_status
+            hand_state = self._hand_state
+            grasped_object_label = self._grasped_object_label
+        self._publish_string(self.pub_arm_status, arm_status)
+        self._publish_string(self.pub_hand_state, hand_state)
+        self._publish_string(self.pub_grasp_label, grasped_object_label)
 
     def _cmd_vel_cb(self, msg: Twist):
         with self.cmd_lock:
@@ -378,21 +478,11 @@ class MujocoROS2Bridge(Node):
 
 
     def _publish_robot_description_once(self):
-        """
-        Publish a minimal URDF so RViz can display a RobotModel.
-        This includes:
-        base_link
-        livox_frame
-        camera_link
-        and fixed joints from base_link to sensors.
-
-        Replace this later with the real G1 URDF for full visualization.
-        """
-        if not self.p.exists():
-            self.get_logger().error(f"/robot_description URDF not found: {self.p}")
+        if not self.robot_description_path.exists():
+            self.get_logger().error(f"/robot_description URDF not found: {self.robot_description_path}")
             return
 
-        urdf = self.p.read_text(encoding="utf-8")
+        urdf = self.robot_description_path.read_text(encoding="utf-8")
         msg = String()
         msg.data = urdf
         self.pub_robot_description.publish(msg)
@@ -440,6 +530,11 @@ class MujocoROS2Bridge(Node):
         publish_odom = self._should_publish(self._odom_period, self.sim_time, "_last_odom_t")
         publish_imu = self._should_publish(self._imu_period, self.sim_time, "_last_imu_t")
         publish_joint = self._should_publish(self._joint_period, self.sim_time, "_last_joint_t")
+        publish_description = self._should_publish(
+            self._robot_description_period,
+            self.sim_time,
+            "_last_robot_description_t",
+        )
 
         if publish_clock:
             t0 = time.perf_counter()
@@ -579,6 +674,11 @@ class MujocoROS2Bridge(Node):
             self.pub_joint.publish(js)
             self._stats["joint_msgs"] += 1
             self._add_stat_time("t_joint_s", time.perf_counter() - t0)
+
+        if publish_description:
+            self._publish_robot_description_once()
+
+        self.publish_manipulation_state()
 
         self._add_stat_time("t_total_s", time.perf_counter() - t_call)
 
@@ -1256,6 +1356,316 @@ def pd_control(target_q, q, kp, target_dq, dq, kd):
     return (target_q - q) * kp + (target_dq - dq) * kd
 
 
+class UpperBodyController:
+    def __init__(self, m: mujoco.MjModel, d: mujoco.MjData, config: dict, ros_bridge: MujocoROS2Bridge | None = None):
+        self.m = m
+        self.d = d
+        self.ros_bridge = ros_bridge
+        self.enabled = bool(config.get("upper_body_enabled", False))
+        self.leg_actuator_count = int(config.get("leg_actuator_count", 12))
+        self.nu = int(self.m.nu)
+
+        self.act_joint_ids = self.m.actuator_trnid[:, 0].copy()
+        self.qpos_adr = np.array([self.m.jnt_qposadr[jid] for jid in self.act_joint_ids], dtype=int)
+        self.qvel_adr = np.array([self.m.jnt_dofadr[jid] for jid in self.act_joint_ids], dtype=int)
+
+        if not self.enabled or self.nu <= self.leg_actuator_count:
+            self.enabled = False
+            return
+        if self.nu < 43:
+            raise ValueError(f"upper_body_enabled requires the with-hand G1 model (expected >=43 actuators, got {self.nu})")
+
+        self.upper_ctrl_indices = np.arange(self.leg_actuator_count, self.nu, dtype=int)
+        self.upper_qpos_adr = self.qpos_adr[self.upper_ctrl_indices]
+        self.upper_qvel_adr = self.qvel_adr[self.upper_ctrl_indices]
+        self.upper_joint_ids = self.act_joint_ids[self.upper_ctrl_indices]
+        self.upper_joint_ranges = self.m.jnt_range[self.upper_joint_ids].astype(np.float64).copy()
+
+        self.waist_ctrl_indices = np.arange(12, 15, dtype=int)
+        self.left_ctrl_indices = np.arange(15, 29, dtype=int)
+        self.right_arm_ctrl_indices = np.arange(29, 36, dtype=int)
+        self.right_hand_ctrl_indices = np.arange(36, 43, dtype=int)
+        self.arm_ctrl_indices = np.concatenate((self.waist_ctrl_indices, self.right_arm_ctrl_indices))
+        self.arm_qpos_adr = self.qpos_adr[self.arm_ctrl_indices]
+        self.arm_qvel_adr = self.qvel_adr[self.arm_ctrl_indices]
+        self.arm_joint_ids = self.act_joint_ids[self.arm_ctrl_indices]
+        self.arm_joint_ranges = self.m.jnt_range[self.arm_joint_ids].astype(np.float64).copy()
+        self.right_hand_qpos_adr = self.qpos_adr[self.right_hand_ctrl_indices]
+
+        self.waist_slice = slice(0, 3)
+        self.left_slice = slice(3, 17)
+        self.right_arm_slice = slice(17, 24)
+        self.right_hand_slice = slice(24, 31)
+
+        self.upper_kps = self._vector_from_config(config, "upper_body_kps", self.upper_ctrl_indices.size)
+        self.upper_kds = self._vector_from_config(config, "upper_body_kds", self.upper_ctrl_indices.size)
+        self.zero_upper_dq = np.zeros_like(self.upper_kds)
+
+        self.waist_neutral = self._vector_from_config(config, "waist_neutral_pose", 3)
+        self.left_arm_park = self._vector_from_config(config, "left_arm_park_pose", 14)
+        self.right_arm_neutral = self._vector_from_config(config, "right_arm_neutral_pose", 7)
+        self.right_hand_open = self._vector_from_config(config, "right_hand_open", 7)
+        self.right_hand_close = self._vector_from_config(config, "right_hand_close", 7)
+        self.arm_regularization_target = np.concatenate((self.waist_neutral, self.right_arm_neutral))
+
+        self.hand_interp_rate = float(config.get("hand_interp_rate", 8.0))
+        self.hand_state_tolerance = float(config.get("hand_state_tolerance", 0.06))
+        self.arm_goal_timeout_sec = float(config.get("arm_goal_timeout_sec", 5.0))
+        self.arm_goal_tolerance = float(config.get("arm_goal_tolerance", 0.03))
+        self.arm_ik_damping = float(config.get("arm_ik_damping", 0.12))
+        self.arm_ik_step_gain = float(config.get("arm_ik_step_gain", 0.45))
+        self.arm_ik_regularization = float(config.get("arm_ik_regularization", 0.12))
+        self.arm_ik_max_delta = float(config.get("arm_ik_max_delta", 0.08))
+        self.palm_offset_local = self._vector_from_config(config, "palm_offset_local", 3)
+        self.grasp_capture_halfsize = self._vector_from_config(config, "grasp_capture_halfsize", 3)
+        self.grasp_contact_frames_required = int(config.get("grasp_contact_frames", 6))
+        self.grasp_loss_frames_allowed = int(config.get("grasp_loss_frames", 4))
+
+        self.upper_target = np.zeros(self.upper_ctrl_indices.size, dtype=np.float64)
+        self.arm_joint_target = self.arm_regularization_target.copy()
+        self.right_hand_target = self.right_hand_open.copy()
+        self.right_hand_desired = self.right_hand_open.copy()
+        self.hand_command = "open"
+        self.hand_state = "OPEN"
+        self.hand_command_seq = -1
+        self.arm_goal_seq = -1
+        self.arm_goal_base = None
+        self.arm_goal_active = False
+        self.arm_goal_started = 0.0
+        self.arm_status = "IDLE"
+        self.grasped_object_label = ""
+        self.grasp_contact_frames = 0
+        self.grasp_loss_frames = 0
+
+        self.base_body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
+        self.wrist_body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "right_wrist_yaw_link")
+        self.ball_body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "small_sphere__link")
+        if self.ball_body_id < 0:
+            self.ball_body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "small_sphere")
+
+        self.ball_geom_ids = set()
+        self.hand_geom_ids = set()
+        self.geom_body_names = {}
+        for gid in range(self.m.ngeom):
+            body_id = int(self.m.geom_bodyid[gid])
+            body_name = mujoco.mj_id2name(self.m, mujoco.mjtObj.mjOBJ_BODY, body_id) or ""
+            self.geom_body_names[gid] = body_name
+            if body_name.startswith("small_sphere"):
+                self.ball_geom_ids.add(gid)
+            if (
+                body_name == "right_wrist_yaw_link"
+                or body_name.startswith("right_hand_thumb")
+                or body_name.startswith("right_hand_index")
+                or body_name.startswith("right_hand_middle")
+            ):
+                self.hand_geom_ids.add(gid)
+
+        self._refresh_upper_target()
+        self._sync_bridge_state()
+
+    @staticmethod
+    def _vector_from_config(config: dict, key: str, size: int) -> np.ndarray:
+        value = np.array(config[key], dtype=np.float64)
+        if value.shape != (size,):
+            raise ValueError(f"Config key {key!r} must have length {size}, got shape {value.shape}")
+        return value
+
+    def _clamp_to_joint_ranges(self, target: np.ndarray, ranges: np.ndarray) -> np.ndarray:
+        clipped = target.copy()
+        for idx in range(clipped.shape[0]):
+            lo = float(ranges[idx, 0])
+            hi = float(ranges[idx, 1])
+            if lo < hi:
+                clipped[idx] = np.clip(clipped[idx], lo, hi)
+        return clipped
+
+    def _sync_bridge_state(self):
+        if self.ros_bridge is None:
+            return
+        self.ros_bridge.set_arm_status(self.arm_status)
+        self.ros_bridge.set_hand_state(self.hand_state)
+        self.ros_bridge.set_grasped_object_label(self.grasped_object_label)
+
+    def _refresh_upper_target(self):
+        self.upper_target[self.waist_slice] = self.arm_joint_target[:3]
+        self.upper_target[self.left_slice] = self.left_arm_park
+        self.upper_target[self.right_arm_slice] = self.arm_joint_target[3:]
+        self.upper_target[self.right_hand_slice] = self.right_hand_target
+
+    def _consume_ros_commands(self, sim_time: float):
+        if self.ros_bridge is None:
+            return
+        command_state = self.ros_bridge.get_manipulation_commands()
+        hand_command_seq = int(command_state["hand_command_seq"])
+        if hand_command_seq != self.hand_command_seq:
+            self.hand_command_seq = hand_command_seq
+            self.hand_command = str(command_state["hand_command"]).strip().lower()
+            self.right_hand_desired = (
+                self.right_hand_close.copy() if self.hand_command == "close" else self.right_hand_open.copy()
+            )
+            self.hand_state = "MOVING"
+
+        arm_goal = command_state["arm_goal"]
+        if arm_goal is None:
+            return
+        if int(arm_goal["seq"]) == self.arm_goal_seq:
+            return
+        if arm_goal["frame_id"] not in ("", "base_link"):
+            print(f"[upper-body] Ignoring unsupported arm goal frame: {arm_goal['frame_id']}")
+            return
+
+        self.arm_goal_seq = int(arm_goal["seq"])
+        self.arm_goal_base = arm_goal["position"].copy()
+        self.arm_goal_active = True
+        self.arm_goal_started = float(sim_time)
+        self.arm_status = "BUSY"
+
+    def _current_palm_pose_world(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        wrist_pos = self.d.xpos[self.wrist_body_id].copy()
+        wrist_rot = self.d.xmat[self.wrist_body_id].reshape(3, 3).copy()
+        palm_pos = wrist_pos + wrist_rot @ self.palm_offset_local
+        return wrist_pos, wrist_rot, palm_pos
+
+    def _goal_palm_world(self) -> np.ndarray | None:
+        if self.arm_goal_base is None:
+            return None
+        base_pos = self.d.xpos[self.base_body_id].copy()
+        base_rot = self.d.xmat[self.base_body_id].reshape(3, 3).copy()
+        return base_pos + base_rot @ self.arm_goal_base
+
+    def _step_hand_controller(self, dt: float):
+        alpha = float(np.clip(dt * self.hand_interp_rate, 0.0, 1.0))
+        self.right_hand_target += alpha * (self.right_hand_desired - self.right_hand_target)
+        actual = self.d.qpos[self.right_hand_qpos_adr].copy()
+        desired_err = np.max(np.abs(actual - self.right_hand_desired))
+        target_err = np.max(np.abs(self.right_hand_target - self.right_hand_desired))
+        if desired_err <= self.hand_state_tolerance and target_err <= self.hand_state_tolerance:
+            self.hand_state = "CLOSED" if self.hand_command == "close" else "OPEN"
+        else:
+            self.hand_state = "MOVING"
+
+    def _step_arm_controller(self, sim_time: float):
+        if not self.arm_goal_active:
+            return
+
+        target_palm_world = self._goal_palm_world()
+        if target_palm_world is None:
+            return
+
+        wrist_pos, wrist_rot, palm_pos = self._current_palm_pose_world()
+        palm_err = target_palm_world - palm_pos
+        palm_dist = float(np.linalg.norm(palm_err))
+        if palm_dist <= self.arm_goal_tolerance:
+            self.arm_goal_active = False
+            self.arm_status = "SUCCESS"
+            self.arm_joint_target = self.d.qpos[self.arm_qpos_adr].copy()
+            return
+
+        if sim_time - self.arm_goal_started > self.arm_goal_timeout_sec:
+            self.arm_goal_active = False
+            self.arm_status = "FAIL"
+            self.arm_joint_target = self.d.qpos[self.arm_qpos_adr].copy()
+            return
+
+        target_wrist_world = target_palm_world - wrist_rot @ self.palm_offset_local
+        pos_err = target_wrist_world - wrist_pos
+
+        jacp = np.zeros((3, self.m.nv), dtype=np.float64)
+        jacr = np.zeros((3, self.m.nv), dtype=np.float64)
+        mujoco.mj_jacBody(self.m, self.d, jacp, jacr, self.wrist_body_id)
+        J = jacp[:, self.arm_qvel_adr]
+        damping_sq = float(self.arm_ik_damping * self.arm_ik_damping)
+        solve_rhs = pos_err * self.arm_ik_step_gain
+        delta = J.T @ np.linalg.solve(J @ J.T + damping_sq * np.eye(3), solve_rhs)
+
+        q_current = self.d.qpos[self.arm_qpos_adr].copy()
+        delta += self.arm_ik_regularization * (self.arm_regularization_target - q_current)
+        delta = np.clip(delta, -self.arm_ik_max_delta, self.arm_ik_max_delta)
+        self.arm_joint_target = self._clamp_to_joint_ranges(q_current + delta, self.arm_joint_ranges)
+        self.arm_status = "BUSY"
+
+    def _ball_inside_capture_volume(self) -> bool:
+        if self.ball_body_id < 0:
+            return False
+        _, wrist_rot, palm_pos = self._current_palm_pose_world()
+        ball_pos = self.d.xpos[self.ball_body_id].copy()
+        local_ball = wrist_rot.T @ (ball_pos - palm_pos)
+        return bool(np.all(np.abs(local_ball) <= self.grasp_capture_halfsize))
+
+    def _clear_grasp(self):
+        self.grasped_object_label = ""
+        self.grasp_contact_frames = 0
+        self.grasp_loss_frames = 0
+
+    def _update_grasp_state(self):
+        if self.ball_body_id < 0 or not self.ball_geom_ids or not self.hand_geom_ids:
+            self._clear_grasp()
+            return
+
+        if self.hand_command != "close":
+            self._clear_grasp()
+            return
+
+        thumb_contact = False
+        finger_contact = False
+        for contact_idx in range(int(self.d.ncon)):
+            contact = self.d.contact[contact_idx]
+            geom1 = int(contact.geom1)
+            geom2 = int(contact.geom2)
+            if geom1 in self.ball_geom_ids and geom2 in self.hand_geom_ids:
+                hand_geom = geom2
+            elif geom2 in self.ball_geom_ids and geom1 in self.hand_geom_ids:
+                hand_geom = geom1
+            else:
+                continue
+
+            body_name = self.geom_body_names.get(hand_geom, "")
+            if body_name.startswith("right_hand_thumb"):
+                thumb_contact = True
+            if body_name.startswith("right_hand_index") or body_name.startswith("right_hand_middle") or body_name == "right_wrist_yaw_link":
+                finger_contact = True
+
+        contact_ok = thumb_contact and finger_contact and self._ball_inside_capture_volume()
+        if contact_ok:
+            self.grasp_contact_frames += 1
+            self.grasp_loss_frames = 0
+        else:
+            self.grasp_contact_frames = 0
+            if self.grasped_object_label:
+                self.grasp_loss_frames += 1
+
+        if not self.grasped_object_label and contact_ok and self.grasp_contact_frames >= self.grasp_contact_frames_required:
+            self.grasped_object_label = "orangeball"
+            return
+
+        if self.grasped_object_label and not contact_ok and self.grasp_loss_frames >= self.grasp_loss_frames_allowed:
+            self._clear_grasp()
+
+    def step(self, sim_time: float, dt: float):
+        if not self.enabled:
+            return
+        self._consume_ros_commands(sim_time)
+        self._step_hand_controller(dt)
+        self._step_arm_controller(sim_time)
+        self._update_grasp_state()
+        self._refresh_upper_target()
+        self._sync_bridge_state()
+
+    def compute_torque(self) -> np.ndarray:
+        if not self.enabled:
+            return np.zeros(0, dtype=np.float64)
+        q_upper = self.d.qpos[self.upper_qpos_adr].copy()
+        dq_upper = self.d.qvel[self.upper_qvel_adr].copy()
+        return pd_control(
+            self.upper_target,
+            q_upper,
+            self.upper_kps,
+            self.zero_upper_dq,
+            dq_upper,
+            self.upper_kds,
+        )
+
+
 if __name__ == "__main__":
     # get config file name from command line
     import argparse
@@ -1434,13 +1844,20 @@ if __name__ == "__main__":
     # - jnt_qposadr: index into qpos for that joint
     # - jnt_dofadr:  index into qvel for that joint
     act_joint_ids = m.actuator_trnid[:, 0].copy()
-    qpos_adr = np.array([m.jnt_qposadr[jid] for jid in act_joint_ids], dtype=int)
-    qvel_adr = np.array([m.jnt_dofadr[jid] for jid in act_joint_ids], dtype=int)
+    qpos_adr_all = np.array([m.jnt_qposadr[jid] for jid in act_joint_ids], dtype=int)
+    qvel_adr_all = np.array([m.jnt_dofadr[jid] for jid in act_joint_ids], dtype=int)
+    qpos_adr = qpos_adr_all[:num_actions]
+    qvel_adr = qvel_adr_all[:num_actions]
 
-    # Optional sanity checks (won’t stop execution unless you want it to)
-    if qpos_adr.shape[0] != num_actions or qvel_adr.shape[0] != num_actions:
+    if qpos_adr_all.shape[0] < num_actions or qvel_adr_all.shape[0] < num_actions:
+        raise ValueError(
+            f"Policy expects {num_actions} actuators, but model only exposes {qpos_adr_all.shape[0]}"
+        )
+
+    # Optional sanity checks for upper-body-capable models.
+    if qpos_adr_all.shape[0] != num_actions:
         print(
-            f"[WARN] actuator count ({qpos_adr.shape[0]}) != num_actions ({num_actions}). "
+            f"[WARN] actuator count ({qpos_adr_all.shape[0]}) != num_actions ({num_actions}). "
             "This may indicate extra actuators or a mismatch in config."
         )
 
@@ -1500,6 +1917,16 @@ if __name__ == "__main__":
     else:
         ros_bridge = None
         print("[ROS2] rclpy not available; ROS publishing")
+
+    upper_body_controller = UpperBodyController(m, d, config, ros_bridge=ros_bridge)
+    if upper_body_controller.enabled:
+        print("[upper-body] Enabled custom waist/right-arm/right-hand control")
+        print("[upper-body] Topics:")
+        print("  /unitree/right_arm/goal_pose (geometry_msgs/PoseStamped)")
+        print("  /unitree/right_arm/status (std_msgs/String)")
+        print("  /unitree/right_hand/command (std_msgs/String)")
+        print("  /unitree/right_hand/state (std_msgs/String)")
+        print("  /unitree/grasped_object_label (std_msgs/String)")
 
     def maybe_print_runtime_profile(now_wall: float):
         global runtime_profile_last_wall
@@ -1590,9 +2017,11 @@ if __name__ == "__main__":
 
             # --- Robust joint state extraction for PD control ---
             t0 = time.perf_counter()
+            if upper_body_controller.enabled:
+                upper_body_controller.step(sim_time, m.opt.timestep)
             qj_raw = d.qpos[qpos_adr]
             dqj_raw = d.qvel[qvel_adr]
-            tau = pd_control(
+            tau_leg = pd_control(
                 target_dof_pos,
                 qj_raw,
                 kps,
@@ -1600,7 +2029,11 @@ if __name__ == "__main__":
                 dqj_raw,
                 kds,
             )
-            d.ctrl[:] = tau
+            d.ctrl[:] = 0.0
+            d.ctrl[:num_actions] = tau_leg
+            if upper_body_controller.enabled:
+                tau_upper = upper_body_controller.compute_torque()
+                d.ctrl[num_actions : num_actions + tau_upper.shape[0]] = tau_upper
             runtime_profile["control_s"] += time.perf_counter() - t0
 
             t0 = time.perf_counter()

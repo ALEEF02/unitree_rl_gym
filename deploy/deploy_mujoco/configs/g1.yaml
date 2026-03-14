@@ -1,6 +1,6 @@
 # 
 policy_path: "{LEGGED_GYM_ROOT_DIR}/deploy/pre_train/g1/motion.pt"
-xml_path: "{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene.xml"
+xml_path: "{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene_orangeball_manip.xml"
 
 # Total simulation time
 simulation_duration: 60000.0
@@ -24,3 +24,35 @@ num_actions: 12
 num_obs: 47
 
 cmd_init: [0.5, 0, 0]
+
+upper_body_enabled: true
+leg_actuator_count: 12
+upper_body_kps: [
+  120.0, 120.0, 120.0,
+  80.0, 80.0, 80.0, 60.0, 40.0, 40.0, 30.0, 18.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0,
+  80.0, 80.0, 80.0, 60.0, 40.0, 40.0, 30.0,
+  18.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0
+]
+upper_body_kds: [
+  4.0, 4.0, 4.0,
+  2.5, 2.5, 2.5, 2.0, 1.5, 1.5, 1.0, 0.5, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4,
+  2.5, 2.5, 2.5, 2.0, 1.5, 1.5, 1.0,
+  0.5, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4
+]
+waist_neutral_pose: [0.0, 0.0, 0.0]
+left_arm_park_pose: [0.20, 0.35, 0.0, 1.25, 0.0, 0.20, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+right_arm_neutral_pose: [0.20, -0.35, 0.0, 1.25, 0.0, 0.65, 0.0]
+right_hand_open: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+right_hand_close: [0.70, 0.35, -0.90, 1.05, 1.10, 1.00, 1.05]
+hand_interp_rate: 8.0
+hand_state_tolerance: 0.06
+arm_goal_timeout_sec: 5.0
+arm_goal_tolerance: 0.03
+arm_ik_damping: 0.12
+arm_ik_step_gain: 0.45
+arm_ik_regularization: 0.12
+arm_ik_max_delta: 0.08
+palm_offset_local: [0.0415, -0.003, 0.0]
+grasp_capture_halfsize: [0.085, 0.055, 0.055]
+grasp_contact_frames: 6
+grasp_loss_frames: 4
