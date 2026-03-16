@@ -1898,6 +1898,17 @@ if __name__ == "__main__":
         enforce_actuator_force_clamp = bool(config.get("enforce_actuator_force_clamp", True))
         stability_log_hz = float(config.get("stability_log_hz", 2.0))
 
+        zero_cmd_trim_enabled = bool(config.get("zero_cmd_trim_enabled", True))
+        zero_cmd_trim_cmd_eps = float(config.get("zero_cmd_trim_cmd_eps", 0.06))
+        zero_cmd_trim_kp = float(config.get("zero_cmd_trim_kp", 0.35))
+        zero_cmd_trim_ki = float(config.get("zero_cmd_trim_ki", 0.08))
+        zero_cmd_trim_max_vx = float(config.get("zero_cmd_trim_max_vx", 0.20))
+        zero_cmd_trim_integrator_limit = float(config.get("zero_cmd_trim_integrator_limit", 0.30))
+        zero_cmd_trim_decay_tau_sec = float(config.get("zero_cmd_trim_decay_tau_sec", 1.0))
+
+        drift_eval_settle_sec = float(config.get("drift_eval_settle_sec", 15.0))
+        drift_eval_log_hz = float(config.get("drift_eval_log_hz", 1.0))
+
         cmd_lock = threading.Lock()
         cmd_init = config["cmd_init"]
         cmd_shared = cmd_init.copy()
@@ -2003,6 +2014,14 @@ if __name__ == "__main__":
     else:
         print("[safety] Actuator force clamping disabled")
 
+    if zero_cmd_trim_enabled:
+        print(
+            "[trim] Zero-cmd trim enabled "
+            f"(eps={zero_cmd_trim_cmd_eps:.3f}, kp={zero_cmd_trim_kp:.3f}, ki={zero_cmd_trim_ki:.3f}, max={zero_cmd_trim_max_vx:.3f})"
+        )
+    else:
+        print("[trim] Zero-cmd trim disabled")
+
     # load policy
     policy = torch.jit.load(policy_path)
 
@@ -2081,6 +2100,16 @@ if __name__ == "__main__":
     else:
         print("[stability] Logging disabled (stability_log_hz <= 0)")
 
+    drift_eval_log_period = None
+    if drift_eval_log_hz > 0.0:
+        drift_eval_log_period = 1.0 / drift_eval_log_hz
+        print(
+            f"[drift-eval] Logging enabled at {drift_eval_log_hz:.2f} Hz "
+            f"(settle={drift_eval_settle_sec:.1f}s)"
+        )
+    else:
+        print("[drift-eval] Logging disabled (drift_eval_log_hz <= 0)")
+
     def maybe_print_runtime_profile(now_wall: float):
         global runtime_profile_last_wall
         if not args.profile_runtime:
@@ -2158,6 +2187,18 @@ if __name__ == "__main__":
 
         sim_time = 0.0
         last_stability_log_t = -1e12
+        last_drift_eval_log_t = -1e12
+
+        drift_ref_xy = None
+        drift_ref_t = None
+
+        vx_trim = 0.0
+        vx_trim_integrator = 0.0
+
+        cmd_raw = np.zeros(3, dtype=np.float64)
+        cmd_policy = np.zeros(3, dtype=np.float64)
+        vx_measured_base = 0.0
+
         start = time.time()
         while (viewer is None or viewer.is_running()) and time.time() - start < simulation_duration:
             loop_wall_t0 = time.perf_counter()
@@ -2168,6 +2209,43 @@ if __name__ == "__main__":
                 rclpy.spin_once(ros_bridge, timeout_sec=0.0)
                 ros_bridge.enforce_cmd_vel_timeout()
                 runtime_profile["spin_ros_s"] += time.perf_counter() - t0
+
+            with cmd_lock:
+                cmd_raw = np.array(cmd_shared, dtype=np.float64, copy=True)
+
+            R_w_base_for_trim = d.xmat[pelvis_body_id].reshape(3, 3)
+            v_world_for_trim = d.cvel[pelvis_body_id, 3:6]
+            v_base_for_trim = R_w_base_for_trim.T @ v_world_for_trim
+            vx_measured_base = float(v_base_for_trim[0])
+
+            cmd_policy = cmd_raw.copy()
+            near_zero_cmd = bool(
+                abs(float(cmd_raw[0])) <= zero_cmd_trim_cmd_eps
+                and abs(float(cmd_raw[1])) <= zero_cmd_trim_cmd_eps
+                and abs(float(cmd_raw[2])) <= zero_cmd_trim_cmd_eps
+            )
+
+            if zero_cmd_trim_enabled and near_zero_cmd:
+                vx_error = -vx_measured_base
+                vx_trim_integrator += vx_error * m.opt.timestep
+                vx_trim_integrator = float(
+                    np.clip(vx_trim_integrator, -zero_cmd_trim_integrator_limit, zero_cmd_trim_integrator_limit)
+                )
+                vx_trim = float(
+                    np.clip(
+                        zero_cmd_trim_kp * vx_error + zero_cmd_trim_ki * vx_trim_integrator,
+                        -zero_cmd_trim_max_vx,
+                        zero_cmd_trim_max_vx,
+                    )
+                )
+            else:
+                decay_tau = max(zero_cmd_trim_decay_tau_sec, 1e-6)
+                decay = float(np.exp(-m.opt.timestep / decay_tau))
+                vx_trim *= decay
+                vx_trim_integrator *= decay
+
+            if zero_cmd_trim_enabled and near_zero_cmd:
+                cmd_policy[0] = float(cmd_policy[0] + vx_trim)
 
             # --- Robust joint state extraction for PD control ---
             t0 = time.perf_counter()
@@ -2227,6 +2305,32 @@ if __name__ == "__main__":
                     f"ncon={int(d.ncon)}"
                 )
 
+            if drift_ref_xy is None and sim_time >= drift_eval_settle_sec:
+                drift_ref_xy = d.xpos[pelvis_body_id, 0:2].copy()
+                drift_ref_t = sim_time
+                print(
+                    "[drift-eval] "
+                    f"Reference locked at t={sim_time:.2f}s xy=({float(drift_ref_xy[0]):.3f}, {float(drift_ref_xy[1]):.3f})"
+                )
+
+            if (
+                drift_ref_xy is not None
+                and drift_eval_log_period is not None
+                and sim_time + 1e-12 >= last_drift_eval_log_t + drift_eval_log_period
+            ):
+                last_drift_eval_log_t = sim_time
+                pelvis_xy = d.xpos[pelvis_body_id, 0:2]
+                drift_xy = float(np.linalg.norm(pelvis_xy - drift_ref_xy))
+                elapsed = max(sim_time - drift_ref_t, 1e-9)
+                drift_rate_m_per_min = drift_xy / elapsed * 60.0
+                print(
+                    "[drift-eval] "
+                    f"t={sim_time:.2f}s drift_xy={drift_xy:.3f}m "
+                    f"drift_rate={drift_rate_m_per_min:.3f}m/min "
+                    f"vx_meas={vx_measured_base:.3f} vx_trim={vx_trim:.3f} "
+                    f"vx_cmd_raw={float(cmd_raw[0]):.3f} vx_cmd_policy={float(cmd_policy[0]):.3f}"
+                )
+
             counter += 1
             if counter % control_decimation == 0:
                 # Apply control signal here.
@@ -2248,9 +2352,7 @@ if __name__ == "__main__":
 
                 obs[:3] = omega
                 obs[3:6] = gravity_orientation
-                with cmd_lock:
-                    cmd = cmd_shared.copy()
-                obs[6:9] = cmd * cmd_scale
+                obs[6:9] = cmd_policy * cmd_scale
                 obs[9 : 9 + num_actions] = qj
                 obs[9 + num_actions : 9 + 2 * num_actions] = dqj
                 obs[9 + 2 * num_actions : 9 + 3 * num_actions] = action
