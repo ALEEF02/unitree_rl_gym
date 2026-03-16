@@ -1,6 +1,6 @@
 # 
 policy_path: "{LEGGED_GYM_ROOT_DIR}/deploy/pre_train/g1/motion.pt"
-xml_path: "{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene_orangeball_manip.xml"
+xml_path: "{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene_orangeball_manip_stable.xml"
 
 # Total simulation time
 simulation_duration: 60000.0
@@ -24,6 +24,10 @@ num_actions: 12
 num_obs: 47
 
 cmd_init: [0.5, 0, 0]
+
+# Safety and smoke-test observability
+enforce_actuator_force_clamp: true
+stability_log_hz: 2.0
 
 upper_body_enabled: true
 leg_actuator_count: 12

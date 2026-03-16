@@ -1356,6 +1356,32 @@ def pd_control(target_q, q, kp, target_dq, dq, kd):
     return (target_q - q) * kp + (target_dq - dq) * kd
 
 
+def build_actuator_force_limits(m: mujoco.MjModel) -> tuple[np.ndarray, np.ndarray]:
+    """Builds per-actuator force limits using joint actuator ranges when available."""
+    lower = np.full(int(m.nu), -np.inf, dtype=np.float64)
+    upper = np.full(int(m.nu), np.inf, dtype=np.float64)
+    act_joint_ids = m.actuator_trnid[:, 0].astype(int)
+
+    for actuator_id, joint_id in enumerate(act_joint_ids):
+        if joint_id >= 0:
+            lo = float(m.jnt_actfrcrange[joint_id, 0])
+            hi = float(m.jnt_actfrcrange[joint_id, 1])
+            if lo < hi:
+                lower[actuator_id] = lo
+                upper[actuator_id] = hi
+                continue
+
+        # Fallback for torque motors when joint actuator force range is unavailable.
+        if int(m.actuator_ctrllimited[actuator_id]) != 0:
+            lo = float(m.actuator_ctrlrange[actuator_id, 0])
+            hi = float(m.actuator_ctrlrange[actuator_id, 1])
+            if lo < hi:
+                lower[actuator_id] = lo
+                upper[actuator_id] = hi
+
+    return lower, upper
+
+
 class UpperBodyController:
     def __init__(self, m: mujoco.MjModel, d: mujoco.MjData, config: dict, ros_bridge: MujocoROS2Bridge | None = None):
         self.m = m
@@ -1375,17 +1401,101 @@ class UpperBodyController:
         if self.nu < 43:
             raise ValueError(f"upper_body_enabled requires the with-hand G1 model (expected >=43 actuators, got {self.nu})")
 
-        self.upper_ctrl_indices = np.arange(self.leg_actuator_count, self.nu, dtype=int)
+        self.actuator_names = []
+        actuator_name_to_index = {}
+        duplicate_names = set()
+        for actuator_id in range(self.nu):
+            actuator_name = mujoco.mj_id2name(self.m, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator_id)
+            if not actuator_name:
+                raise ValueError(f"Actuator id {actuator_id} is missing a name; required for robust mapping")
+            self.actuator_names.append(actuator_name)
+            if actuator_name in actuator_name_to_index:
+                duplicate_names.add(actuator_name)
+            actuator_name_to_index[actuator_name] = actuator_id
+
+        if duplicate_names:
+            dup_text = ", ".join(sorted(duplicate_names))
+            raise ValueError(f"Actuator names must be unique; duplicates found: {dup_text}")
+
+        self.waist_joint_names = [
+            "waist_yaw_joint",
+            "waist_roll_joint",
+            "waist_pitch_joint",
+        ]
+        self.left_joint_names = [
+            "left_shoulder_pitch_joint",
+            "left_shoulder_roll_joint",
+            "left_shoulder_yaw_joint",
+            "left_elbow_joint",
+            "left_wrist_roll_joint",
+            "left_wrist_pitch_joint",
+            "left_wrist_yaw_joint",
+            "left_hand_thumb_0_joint",
+            "left_hand_thumb_1_joint",
+            "left_hand_thumb_2_joint",
+            "left_hand_middle_0_joint",
+            "left_hand_middle_1_joint",
+            "left_hand_index_0_joint",
+            "left_hand_index_1_joint",
+        ]
+        self.right_arm_joint_names = [
+            "right_shoulder_pitch_joint",
+            "right_shoulder_roll_joint",
+            "right_shoulder_yaw_joint",
+            "right_elbow_joint",
+            "right_wrist_roll_joint",
+            "right_wrist_pitch_joint",
+            "right_wrist_yaw_joint",
+        ]
+        self.right_hand_joint_names = [
+            "right_hand_thumb_0_joint",
+            "right_hand_thumb_1_joint",
+            "right_hand_thumb_2_joint",
+            "right_hand_index_0_joint",
+            "right_hand_index_1_joint",
+            "right_hand_middle_0_joint",
+            "right_hand_middle_1_joint",
+        ]
+
+        self.waist_ctrl_indices = self._resolve_ctrl_indices(
+            actuator_name_to_index, self.waist_joint_names, "waist"
+        )
+        self.left_ctrl_indices = self._resolve_ctrl_indices(
+            actuator_name_to_index, self.left_joint_names, "left arm/hand"
+        )
+        self.right_arm_ctrl_indices = self._resolve_ctrl_indices(
+            actuator_name_to_index, self.right_arm_joint_names, "right arm"
+        )
+        self.right_hand_ctrl_indices = self._resolve_ctrl_indices(
+            actuator_name_to_index, self.right_hand_joint_names, "right hand"
+        )
+
+        self.upper_ctrl_indices = np.concatenate(
+            (
+                self.waist_ctrl_indices,
+                self.left_ctrl_indices,
+                self.right_arm_ctrl_indices,
+                self.right_hand_ctrl_indices,
+            )
+        ).astype(int)
+
+        unique_upper = set(int(v) for v in self.upper_ctrl_indices.tolist())
+        if len(unique_upper) != int(self.upper_ctrl_indices.size):
+            raise ValueError("Upper-body actuator mapping contains duplicate indices")
+
+        policy_indices = set(range(self.leg_actuator_count))
+        overlap = sorted(policy_indices.intersection(unique_upper))
+        if overlap:
+            raise ValueError(
+                f"Upper-body actuator mapping overlaps policy-controlled leg actuators: {overlap}"
+            )
+
         self.upper_qpos_adr = self.qpos_adr[self.upper_ctrl_indices]
         self.upper_qvel_adr = self.qvel_adr[self.upper_ctrl_indices]
         self.upper_joint_ids = self.act_joint_ids[self.upper_ctrl_indices]
         self.upper_joint_ranges = self.m.jnt_range[self.upper_joint_ids].astype(np.float64).copy()
 
-        self.waist_ctrl_indices = np.arange(12, 15, dtype=int)
-        self.left_ctrl_indices = np.arange(15, 29, dtype=int)
-        self.right_arm_ctrl_indices = np.arange(29, 36, dtype=int)
-        self.right_hand_ctrl_indices = np.arange(36, 43, dtype=int)
-        self.arm_ctrl_indices = np.concatenate((self.waist_ctrl_indices, self.right_arm_ctrl_indices))
+        self.arm_ctrl_indices = np.concatenate((self.waist_ctrl_indices, self.right_arm_ctrl_indices)).astype(int)
         self.arm_qpos_adr = self.qpos_adr[self.arm_ctrl_indices]
         self.arm_qvel_adr = self.qvel_adr[self.arm_ctrl_indices]
         self.arm_joint_ids = self.act_joint_ids[self.arm_ctrl_indices]
@@ -1460,6 +1570,7 @@ class UpperBodyController:
             ):
                 self.hand_geom_ids.add(gid)
 
+        self._print_mapping_summary()
         self._refresh_upper_target()
         self._sync_bridge_state()
 
@@ -1469,6 +1580,29 @@ class UpperBodyController:
         if value.shape != (size,):
             raise ValueError(f"Config key {key!r} must have length {size}, got shape {value.shape}")
         return value
+
+    @staticmethod
+    def _resolve_ctrl_indices(
+        actuator_name_to_index: dict[str, int],
+        required_names: list[str],
+        group_name: str,
+    ) -> np.ndarray:
+        missing = [name for name in required_names if name not in actuator_name_to_index]
+        if missing:
+            raise ValueError(f"Missing actuator names for {group_name}: {', '.join(missing)}")
+        return np.asarray([actuator_name_to_index[name] for name in required_names], dtype=int)
+
+    def _print_mapping_group(self, group_name: str, ctrl_indices: np.ndarray):
+        mapping = ", ".join(
+            f"{int(idx)}:{self.actuator_names[int(idx)]}" for idx in ctrl_indices.tolist()
+        )
+        print(f"[upper-body mapping] {group_name}: {mapping}")
+
+    def _print_mapping_summary(self):
+        self._print_mapping_group("waist", self.waist_ctrl_indices)
+        self._print_mapping_group("left_arm_hand", self.left_ctrl_indices)
+        self._print_mapping_group("right_arm", self.right_arm_ctrl_indices)
+        self._print_mapping_group("right_hand", self.right_hand_ctrl_indices)
 
     def _clamp_to_joint_ranges(self, target: np.ndarray, ranges: np.ndarray) -> np.ndarray:
         clipped = target.copy()
@@ -1761,6 +1895,8 @@ if __name__ == "__main__":
 
         num_actions = config["num_actions"]
         num_obs = config["num_obs"]
+        enforce_actuator_force_clamp = bool(config.get("enforce_actuator_force_clamp", True))
+        stability_log_hz = float(config.get("stability_log_hz", 2.0))
 
         cmd_lock = threading.Lock()
         cmd_init = config["cmd_init"]
@@ -1861,6 +1997,12 @@ if __name__ == "__main__":
             "This may indicate extra actuators or a mismatch in config."
         )
 
+    force_limit_lower, force_limit_upper = build_actuator_force_limits(m)
+    if enforce_actuator_force_clamp:
+        print("[safety] Actuator force clamping enabled")
+    else:
+        print("[safety] Actuator force clamping disabled")
+
     # load policy
     policy = torch.jit.load(policy_path)
 
@@ -1927,6 +2069,17 @@ if __name__ == "__main__":
         print("  /unitree/right_hand/command (std_msgs/String)")
         print("  /unitree/right_hand/state (std_msgs/String)")
         print("  /unitree/grasped_object_label (std_msgs/String)")
+
+    pelvis_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
+    if pelvis_body_id < 0:
+        raise ValueError("Body 'pelvis' not found for stability logging")
+
+    stability_log_period = None
+    if stability_log_hz > 0.0:
+        stability_log_period = 1.0 / stability_log_hz
+        print(f"[stability] Logging enabled at {stability_log_hz:.2f} Hz")
+    else:
+        print("[stability] Logging disabled (stability_log_hz <= 0)")
 
     def maybe_print_runtime_profile(now_wall: float):
         global runtime_profile_last_wall
@@ -2004,6 +2157,7 @@ if __name__ == "__main__":
         global last_lidar_pts_site, last_cam_pts_world, last_cam_cols, lidar_profile_last_wall
 
         sim_time = 0.0
+        last_stability_log_t = -1e12
         start = time.time()
         while (viewer is None or viewer.is_running()) and time.time() - start < simulation_duration:
             loop_wall_t0 = time.perf_counter()
@@ -2019,6 +2173,7 @@ if __name__ == "__main__":
             t0 = time.perf_counter()
             if upper_body_controller.enabled:
                 upper_body_controller.step(sim_time, m.opt.timestep)
+
             qj_raw = d.qpos[qpos_adr]
             dqj_raw = d.qvel[qvel_adr]
             tau_leg = pd_control(
@@ -2029,17 +2184,48 @@ if __name__ == "__main__":
                 dqj_raw,
                 kds,
             )
-            d.ctrl[:] = 0.0
-            d.ctrl[:num_actions] = tau_leg
+            if enforce_actuator_force_clamp:
+                tau_leg = np.clip(tau_leg, force_limit_lower[:num_actions], force_limit_upper[:num_actions])
+
+            tau_upper = np.zeros(0, dtype=np.float64)
             if upper_body_controller.enabled:
                 tau_upper = upper_body_controller.compute_torque()
-                d.ctrl[num_actions : num_actions + tau_upper.shape[0]] = tau_upper
+                if enforce_actuator_force_clamp:
+                    tau_upper = np.clip(
+                        tau_upper,
+                        force_limit_lower[upper_body_controller.upper_ctrl_indices],
+                        force_limit_upper[upper_body_controller.upper_ctrl_indices],
+                    )
+
+            d.ctrl[:] = 0.0
+            d.ctrl[:num_actions] = tau_leg
+            if upper_body_controller.enabled and tau_upper.size > 0:
+                d.ctrl[upper_body_controller.upper_ctrl_indices] = tau_upper
             runtime_profile["control_s"] += time.perf_counter() - t0
 
             t0 = time.perf_counter()
             mujoco.mj_step(m, d)
             runtime_profile["mj_step_s"] += time.perf_counter() - t0
             sim_time += m.opt.timestep
+
+            if stability_log_period is not None and sim_time + 1e-12 >= last_stability_log_t + stability_log_period:
+                last_stability_log_t = sim_time
+                pelvis_pos = d.xpos[pelvis_body_id]
+                R_w_base = d.xmat[pelvis_body_id].reshape(3, 3)
+                roll_proxy = math.atan2(float(R_w_base[2, 1]), float(R_w_base[2, 2]))
+                pitch_proxy = math.atan2(
+                    float(-R_w_base[2, 0]),
+                    float(np.sqrt(R_w_base[2, 1] ** 2 + R_w_base[2, 2] ** 2)),
+                )
+                leg_tau_max = float(np.max(np.abs(tau_leg))) if tau_leg.size > 0 else 0.0
+                upper_tau_max = float(np.max(np.abs(tau_upper))) if tau_upper.size > 0 else 0.0
+                print(
+                    "[stability] "
+                    f"t={sim_time:.2f}s z={float(pelvis_pos[2]):.3f} "
+                    f"roll={roll_proxy:.3f} pitch={pitch_proxy:.3f} "
+                    f"|tau_leg|max={leg_tau_max:.1f} |tau_upper|max={upper_tau_max:.1f} "
+                    f"ncon={int(d.ncon)}"
+                )
 
             counter += 1
             if counter % control_decimation == 0:
