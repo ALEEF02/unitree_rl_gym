@@ -60,7 +60,7 @@
   <worldbody>
     <body name="pelvis" pos="0 0 0.793">
 
-      <body name="lidar_frame" pos="0 0 0.43">
+      <body name="lidar_frame" pos="0 0 0">
         <site name="livox_mid360" pos="-0.004 0 0.43" size="0.01" rgba="1 0 0 1"/>
       </body>
 
