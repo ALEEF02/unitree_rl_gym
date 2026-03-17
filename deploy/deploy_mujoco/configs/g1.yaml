@@ -61,6 +61,7 @@ upper_body_enabled: true
 leg_actuator_count: 12
 stand_leg_target_angles: [-0.1, 0.0, 0.0, 0.3, -0.2, 0.0, -0.1, 0.0, 0.0, 0.3, -0.2, 0.0]
 stand_leg_max_delta: 0.025
+stand_leg_joint_rate_limit: 2.0
 stand_base_height_target: 0.79
 stand_pitch_kp: 0.45
 stand_pitch_kd: 0.09

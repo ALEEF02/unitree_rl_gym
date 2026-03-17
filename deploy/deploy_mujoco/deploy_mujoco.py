@@ -2290,6 +2290,8 @@ if __name__ == "__main__":
             mode_snapshot = motion_mode_manager.step(sim_time, cmd_raw)
             if mode_snapshot.changed and motion_mode_manager.should_use_walk_policy():
                 walk_leg_controller.reset()
+            if mode_snapshot.changed and motion_mode_manager.stand_controller_active():
+                stand_leg_controller.reset()
 
             R_w_base_for_trim = d.xmat[pelvis_body_id].reshape(3, 3)
             v_world_for_trim = d.cvel[pelvis_body_id, 3:6]

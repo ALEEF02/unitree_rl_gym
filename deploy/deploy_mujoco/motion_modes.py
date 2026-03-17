@@ -394,7 +394,9 @@ class StandLegController:
         self.target = np.array(config.get("stand_leg_target_angles", []), dtype=np.float64)
         if self.target.shape != qpos_adr.shape:
             self.target = self.d.qpos[self.qpos_adr].copy()
-        self.max_delta = float(config.get("stand_leg_max_delta", 0.025))
+        self.filtered_target = self.d.qpos[self.qpos_adr].copy()
+        self.feedback_max_delta = float(config.get("stand_leg_max_delta", 0.025))
+        self.joint_rate_limit = float(config.get("stand_leg_joint_rate_limit", 1.50))
         self.base_height_target = float(config.get("stand_base_height_target", 0.79))
         self.pitch_kp = float(config.get("stand_pitch_kp", 0.45))
         self.pitch_kd = float(config.get("stand_pitch_kd", 0.09))
@@ -405,8 +407,10 @@ class StandLegController:
         self.height_kp = float(config.get("stand_height_kp", 0.35))
         self.height_kd = float(config.get("stand_height_kd", 0.10))
 
+    def reset(self):
+        self.filtered_target = self.d.qpos[self.qpos_adr].copy()
+
     def compute_target(self) -> np.ndarray:
-        q_current = self.d.qpos[self.qpos_adr].copy()
         target = self.target.copy()
         base_rot = self.d.xmat[self.base_body_id].reshape(3, 3)
         cvel = self.d.cvel[self.base_body_id]
@@ -443,8 +447,17 @@ class StandLegController:
         target[7] -= roll_cmd
         target[11] += 1.2 * roll_cmd
 
-        delta = np.clip(target - q_current, -self.max_delta, self.max_delta)
-        return clamp_to_joint_ranges(q_current + delta, self.joint_ranges)
+        feedback_delta = np.clip(target - self.target, -self.feedback_max_delta, self.feedback_max_delta)
+        desired_target = clamp_to_joint_ranges(self.target + feedback_delta, self.joint_ranges)
+        rate_limits = np.full(self.filtered_target.shape[0], self.joint_rate_limit, dtype=np.float64)
+        self.filtered_target, _ = rate_limit_towards(
+            self.filtered_target,
+            desired_target,
+            rate_limits,
+            float(self.m.opt.timestep),
+            ranges=self.joint_ranges,
+        )
+        return self.filtered_target.copy()
 
 
 class HierarchicalUpperBodyController:
