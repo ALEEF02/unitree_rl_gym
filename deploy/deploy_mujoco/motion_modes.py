@@ -38,6 +38,24 @@ def clamp_to_joint_ranges(target: np.ndarray, ranges: np.ndarray) -> np.ndarray:
     return clipped
 
 
+def rate_limit_towards(
+    current: np.ndarray,
+    goal: np.ndarray,
+    rate_limits: np.ndarray,
+    dt: float,
+    *,
+    ranges: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    safe_dt = max(float(dt), 1e-6)
+    max_step = np.asarray(rate_limits, dtype=np.float64) * safe_dt
+    delta = np.clip(np.asarray(goal, dtype=np.float64) - np.asarray(current, dtype=np.float64), -max_step, max_step)
+    next_target = np.asarray(current, dtype=np.float64) + delta
+    if ranges is not None:
+        next_target = clamp_to_joint_ranges(next_target, ranges)
+        delta = next_target - np.asarray(current, dtype=np.float64)
+    return next_target, delta / safe_dt
+
+
 def quat_wxyz_to_rot(quat_wxyz: np.ndarray) -> np.ndarray:
     quat = np.array(quat_wxyz, dtype=np.float64, copy=True)
     norm = float(np.linalg.norm(quat))
@@ -102,14 +120,16 @@ class MotionModeManager:
         self.d = d
         self.ros_bridge = ros_bridge
         self.base_body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
-        self.current_mode = str(config.get("initial_motion_mode", MOTION_MODE_WALK)).strip().upper()
-        if self.current_mode not in VALID_MOTION_MODES:
-            self.current_mode = MOTION_MODE_WALK
+        self.requested_mode = str(config.get("initial_motion_mode", MOTION_MODE_WALK)).strip().upper()
+        if self.requested_mode not in VALID_MOTION_MODES:
+            self.requested_mode = MOTION_MODE_WALK
+        self.current_mode = self.requested_mode
         self.status = MOTION_MODE_STATUS_TRANSITIONING
         self._last_mode = self.current_mode
         self._last_command = None
         self._ready_since = None
         self._transition_started = 0.0
+        self._idle_since = None
         self.transition_timeout_sec = float(config.get("mode_transition_timeout_sec", 6.0))
         self.ready_hold_sec = float(config.get("mode_ready_hold_sec", 0.35))
         self.walk_ready_delay_sec = float(config.get("walk_ready_delay_sec", 0.10))
@@ -117,6 +137,16 @@ class MotionModeManager:
         self.ready_angular_speed_rps = float(config.get("mode_ready_angular_speed_rps", 0.40))
         self.ready_roll_pitch_rad = float(config.get("mode_ready_roll_pitch_rad", 0.22))
         self.ready_vertical_speed_mps = float(config.get("mode_ready_vertical_speed_mps", 0.08))
+        self.auto_stand_enabled = bool(config.get("auto_stand_enabled", True))
+        self.auto_stand_cmd_linear_threshold = float(config.get("auto_stand_cmd_linear_threshold", 0.05))
+        self.auto_stand_cmd_yaw_threshold = float(config.get("auto_stand_cmd_yaw_threshold", 0.12))
+        self.auto_stand_dwell_sec = float(config.get("auto_stand_dwell_sec", 0.75))
+        self.auto_stand_resume_linear_threshold = float(
+            config.get("auto_stand_resume_linear_threshold", 0.08)
+        )
+        self.auto_stand_resume_yaw_threshold = float(
+            config.get("auto_stand_resume_yaw_threshold", 0.18)
+        )
         self._sync_bridge()
 
     def _sync_bridge(self):
@@ -139,6 +169,16 @@ class MotionModeManager:
         self._transition_started = float(sim_time)
         self._sync_bridge()
 
+    def _set_requested_mode(self, mode: str, sim_time: float):
+        desired = str(mode).strip().upper()
+        if desired not in VALID_MOTION_MODES:
+            self.status = MOTION_MODE_STATUS_ERROR
+            self._sync_bridge()
+            return
+        self.requested_mode = desired
+        self._idle_since = None
+        self._set_mode(desired, sim_time)
+
     def consume_command(self, sim_time: float):
         if self.ros_bridge is None:
             return
@@ -146,7 +186,47 @@ class MotionModeManager:
         if command is None or command == self._last_command:
             return
         self._last_command = command
-        self._set_mode(command, sim_time)
+        self._set_requested_mode(command, sim_time)
+
+    def _command_norms(self, command_velocity: np.ndarray | None) -> tuple[float, float]:
+        if command_velocity is None:
+            return 0.0, 0.0
+        command_velocity = np.asarray(command_velocity, dtype=np.float64)
+        linear = float(np.linalg.norm(command_velocity[:2]))
+        yaw = float(abs(command_velocity[2]))
+        return linear, yaw
+
+    def _update_auto_stand_mode(self, sim_time: float, command_velocity: np.ndarray | None):
+        if not self.auto_stand_enabled or self.requested_mode not in (MOTION_MODE_WALK, MOTION_MODE_WALK_CARRY):
+            self._idle_since = None
+            return
+
+        linear_cmd, yaw_cmd = self._command_norms(command_velocity)
+        command_idle = (
+            linear_cmd <= self.auto_stand_cmd_linear_threshold
+            and yaw_cmd <= self.auto_stand_cmd_yaw_threshold
+        )
+        if command_idle:
+            if self._idle_since is None:
+                self._idle_since = float(sim_time)
+        else:
+            self._idle_since = None
+
+        if (
+            self.current_mode == MOTION_MODE_WALK
+            and self._idle_since is not None
+            and float(sim_time) - self._idle_since >= self.auto_stand_dwell_sec
+        ):
+            self._set_mode(MOTION_MODE_STAND_BALANCE, sim_time)
+            return
+
+        command_requests_walk = (
+            linear_cmd >= self.auto_stand_resume_linear_threshold
+            or yaw_cmd >= self.auto_stand_resume_yaw_threshold
+        )
+        if self.current_mode == MOTION_MODE_STAND_BALANCE and command_requests_walk:
+            self._set_mode(self.requested_mode, sim_time)
+            self._idle_since = None
 
     def _standing_ready(self) -> bool:
         base_rot = self.d.xmat[self.base_body_id].reshape(3, 3)
@@ -167,9 +247,10 @@ class MotionModeManager:
     def _walking_ready(self, sim_time: float) -> bool:
         return float(sim_time) - self._transition_started >= self.walk_ready_delay_sec
 
-    def step(self, sim_time: float) -> MotionModeSnapshot:
+    def step(self, sim_time: float, command_velocity: np.ndarray | None = None) -> MotionModeSnapshot:
         previous_mode = self.current_mode
         self.consume_command(sim_time)
+        self._update_auto_stand_mode(sim_time, command_velocity)
         if self.current_mode in (MOTION_MODE_WALK, MOTION_MODE_WALK_CARRY):
             ready = self._walking_ready(sim_time)
         else:
@@ -459,6 +540,8 @@ class HierarchicalUpperBodyController:
         self.arm_qvel_adr = self.qvel_adr[self.arm_ctrl_indices]
         self.arm_joint_ids = self.act_joint_ids[self.arm_ctrl_indices]
         self.arm_joint_ranges = self.m.jnt_range[self.arm_joint_ids].astype(np.float64).copy()
+        self.left_joint_ids = self.act_joint_ids[self.left_ctrl_indices]
+        self.left_joint_ranges = self.m.jnt_range[self.left_joint_ids].astype(np.float64).copy()
         self.right_hand_qpos_adr = self.qpos_adr[self.right_hand_ctrl_indices]
 
         self.waist_slice = slice(0, 3)
@@ -491,6 +574,13 @@ class HierarchicalUpperBodyController:
         self.posture_task_damping = float(config.get("posture_task_damping", 0.10))
         self.arm_joint_rate_limit = float(config.get("arm_joint_rate_limit", 1.25))
         self.waist_joint_rate_limit = float(config.get("waist_joint_rate_limit", 0.8))
+        self.walk_arm_joint_rate_limit = float(config.get("walk_arm_joint_rate_limit", 0.55))
+        self.stand_arm_joint_rate_limit = float(config.get("stand_arm_joint_rate_limit", 0.85))
+        self.left_arm_joint_rate_limit = float(config.get("left_arm_joint_rate_limit", 0.60))
+        self.walk_upper_gain_scale = float(config.get("walk_upper_gain_scale", 0.45))
+        self.walk_carry_upper_gain_scale = float(config.get("walk_carry_upper_gain_scale", 0.55))
+        self.stand_upper_gain_scale = float(config.get("stand_upper_gain_scale", 0.80))
+        self.manip_upper_gain_scale = float(config.get("manip_upper_gain_scale", 1.0))
         self.palm_offset_local = np.array(config["palm_offset_local"], dtype=np.float64)
         self.workspace_min = np.array(config["arm_workspace_min"], dtype=np.float64)
         self.workspace_max = np.array(config["arm_workspace_max"], dtype=np.float64)
@@ -500,8 +590,12 @@ class HierarchicalUpperBodyController:
         self.grasp_loss_frames_allowed = int(config.get("grasp_loss_frames", 4))
 
         self.upper_target = np.zeros(self.upper_ctrl_indices.size, dtype=np.float64)
-        self.arm_joint_target = np.concatenate((self.waist_neutral, self.right_arm_stow))
+        self.upper_target_dq = np.zeros(self.upper_ctrl_indices.size, dtype=np.float64)
+        self.arm_joint_goal = np.concatenate((self.waist_neutral, self.right_arm_stow))
+        self.arm_joint_target = self.arm_joint_goal.copy()
+        self.left_arm_target = self.left_arm_park.copy()
         self.right_hand_target = self.right_hand_open.copy()
+        self.right_hand_target_dq = np.zeros_like(self.right_hand_target)
         self.right_hand_desired = self.right_hand_open.copy()
         self.hand_command = "open"
         self.hand_state = "OPEN"
@@ -540,7 +634,7 @@ class HierarchicalUpperBodyController:
             ):
                 self.hand_geom_ids.add(gid)
 
-        self._refresh_upper_target()
+        self._refresh_upper_target(0.0)
         self._sync_bridge_state()
 
     def _sync_bridge_state(self):
@@ -602,24 +696,72 @@ class HierarchicalUpperBodyController:
         if mode == MOTION_MODE_WALK_CARRY:
             return np.concatenate((self.waist_neutral, self.right_arm_carry))
         if mode == MOTION_MODE_STAND_BALANCE:
+            if self.motion_mode_manager.requested_mode == MOTION_MODE_WALK_CARRY or self.grasped_object_label:
+                return np.concatenate((self.waist_neutral, self.right_arm_carry))
             return np.concatenate((self.waist_neutral, self.right_arm_stand))
         if self.arm_goal_active:
-            return self.arm_joint_target.copy()
+            return self.arm_joint_goal.copy()
         return np.concatenate((self.waist_neutral, self.right_arm_stand))
 
-    def _refresh_upper_target(self):
+    def _active_arm_rate_limits(self) -> np.ndarray:
+        rate_limit = self.stand_arm_joint_rate_limit
+        mode = self.motion_mode_manager.current_mode
+        if mode == MOTION_MODE_WALK:
+            rate_limit = self.walk_arm_joint_rate_limit
+        elif mode == MOTION_MODE_WALK_CARRY:
+            rate_limit = min(self.stand_arm_joint_rate_limit, self.arm_joint_rate_limit)
+        elif mode == MOTION_MODE_MANIPULATE_STANDING:
+            rate_limit = self.arm_joint_rate_limit
+        rate_limits = np.full(self.arm_joint_goal.shape[0], rate_limit, dtype=np.float64)
+        rate_limits[:3] = self.waist_joint_rate_limit
+        return rate_limits
+
+    def _active_gain_scale(self) -> float:
+        mode = self.motion_mode_manager.current_mode
+        if mode == MOTION_MODE_WALK:
+            return self.walk_upper_gain_scale
+        if mode == MOTION_MODE_WALK_CARRY:
+            return self.walk_carry_upper_gain_scale
+        if mode == MOTION_MODE_STAND_BALANCE:
+            return self.stand_upper_gain_scale
+        return self.manip_upper_gain_scale
+
+    def _refresh_upper_target(self, dt: float):
         if not self.motion_mode_manager.allow_manipulation_ik():
-            self.arm_joint_target = self._target_arm_posture()
+            self.arm_goal_active = False
+            self.arm_joint_goal = self._target_arm_posture()
             if self.motion_mode_manager.current_mode != MOTION_MODE_MANIPULATE_STANDING:
                 self.arm_status = "IDLE"
+        previous_arm_target = self.arm_joint_target.copy()
+        previous_left_target = self.left_arm_target.copy()
+        self.arm_joint_target, arm_joint_target_dq = rate_limit_towards(
+            previous_arm_target,
+            self.arm_joint_goal,
+            self._active_arm_rate_limits(),
+            dt,
+            ranges=self.arm_joint_ranges,
+        )
+        self.left_arm_target, left_arm_target_dq = rate_limit_towards(
+            previous_left_target,
+            self.left_arm_park,
+            np.full(self.left_arm_park.shape[0], self.left_arm_joint_rate_limit, dtype=np.float64),
+            dt,
+            ranges=self.left_joint_ranges,
+        )
         self.upper_target[self.waist_slice] = self.arm_joint_target[:3]
-        self.upper_target[self.left_slice] = self.left_arm_park
+        self.upper_target[self.left_slice] = self.left_arm_target
         self.upper_target[self.right_arm_slice] = self.arm_joint_target[3:]
         self.upper_target[self.right_hand_slice] = self.right_hand_target
+        self.upper_target_dq[self.waist_slice] = arm_joint_target_dq[:3]
+        self.upper_target_dq[self.left_slice] = left_arm_target_dq
+        self.upper_target_dq[self.right_arm_slice] = arm_joint_target_dq[3:]
+        self.upper_target_dq[self.right_hand_slice] = self.right_hand_target_dq
 
     def _step_hand_controller(self, dt: float):
+        previous_target = self.right_hand_target.copy()
         alpha = float(np.clip(dt * self.hand_interp_rate, 0.0, 1.0))
         self.right_hand_target += alpha * (self.right_hand_desired - self.right_hand_target)
+        self.right_hand_target_dq = (self.right_hand_target - previous_target) / max(float(dt), 1e-6)
         actual = self.d.qpos[self.right_hand_qpos_adr].copy()
         desired_err = np.max(np.abs(actual - self.right_hand_desired))
         target_err = np.max(np.abs(self.right_hand_target - self.right_hand_desired))
@@ -646,12 +788,12 @@ class HierarchicalUpperBodyController:
         if palm_dist <= self.arm_goal_tolerance and float(np.linalg.norm(rot_err)) <= 0.12:
             self.arm_goal_active = False
             self.arm_status = "SUCCESS"
-            self.arm_joint_target = self.d.qpos[self.arm_qpos_adr].copy()
+            self.arm_joint_goal = self.d.qpos[self.arm_qpos_adr].copy()
             return
         if sim_time - self.arm_goal_started > self.arm_goal_timeout_sec:
             self.arm_goal_active = False
             self.arm_status = "FAIL"
-            self.arm_joint_target = self.d.qpos[self.arm_qpos_adr].copy()
+            self.arm_joint_goal = self.d.qpos[self.arm_qpos_adr].copy()
             return
 
         desired_wrist_world = target_palm_world - target_rot_world @ self.palm_offset_local
@@ -665,8 +807,6 @@ class HierarchicalUpperBodyController:
         mujoco.mj_jacBody(self.m, self.d, jacp_wrist, jacr_wrist, self.wrist_body_id)
 
         q_current = self.d.qpos[self.arm_qpos_adr].copy()
-        dq_limit = np.full(q_current.shape[0], self.arm_joint_rate_limit * dt, dtype=np.float64)
-        dq_limit[:3] = self.waist_joint_rate_limit * dt
         desired_torso_rot = self.d.xmat[self.base_body_id].reshape(3, 3).copy()
         torso_rot = self.d.xmat[self.torso_body_id].reshape(3, 3).copy()
         torso_err = rotation_error(desired_torso_rot, torso_rot)
@@ -705,8 +845,9 @@ class HierarchicalUpperBodyController:
         )
         dq_total += dq_task
 
+        dq_limit = self._active_arm_rate_limits() * float(dt)
         dq_total = np.clip(dq_total, -dq_limit, dq_limit)
-        self.arm_joint_target = clamp_to_joint_ranges(q_current + dq_total, self.arm_joint_ranges)
+        self.arm_joint_goal = clamp_to_joint_ranges(q_current + dq_total, self.arm_joint_ranges)
         self.arm_status = "BUSY"
 
     def _ball_inside_capture_volume(self) -> bool:
@@ -767,7 +908,7 @@ class HierarchicalUpperBodyController:
         self._step_hand_controller(dt)
         self._step_arm_controller(sim_time, dt)
         self._update_grasp_state()
-        self._refresh_upper_target()
+        self._refresh_upper_target(dt)
         self._sync_bridge_state()
 
     def compute_torque(self) -> np.ndarray:
@@ -775,13 +916,14 @@ class HierarchicalUpperBodyController:
             return np.zeros(0, dtype=np.float64)
         q_upper = self.d.qpos[self.upper_qpos_adr].copy()
         dq_upper = self.d.qvel[self.upper_qvel_adr].copy()
+        gain_scale = self._active_gain_scale()
         return pd_control(
             self.upper_target,
             q_upper,
-            self.upper_kps,
-            self.zero_upper_dq,
+            self.upper_kps * gain_scale,
+            self.upper_target_dq,
             dq_upper,
-            self.upper_kds,
+            self.upper_kds * gain_scale,
         )
 
 

@@ -50,6 +50,12 @@ mode_ready_linear_speed_mps: 0.10
 mode_ready_vertical_speed_mps: 0.08
 mode_ready_angular_speed_rps: 0.40
 mode_ready_roll_pitch_rad: 0.22
+auto_stand_enabled: true
+auto_stand_cmd_linear_threshold: 0.05
+auto_stand_cmd_yaw_threshold: 0.12
+auto_stand_dwell_sec: 0.75
+auto_stand_resume_linear_threshold: 0.08
+auto_stand_resume_yaw_threshold: 0.18
 
 upper_body_enabled: true
 leg_actuator_count: 12
@@ -96,6 +102,13 @@ posture_task_gain: 0.18
 posture_task_damping: 0.10
 arm_joint_rate_limit: 1.25
 waist_joint_rate_limit: 0.80
+walk_arm_joint_rate_limit: 0.45
+stand_arm_joint_rate_limit: 0.85
+left_arm_joint_rate_limit: 0.55
+walk_upper_gain_scale: 0.40
+walk_carry_upper_gain_scale: 0.50
+stand_upper_gain_scale: 0.75
+manip_upper_gain_scale: 1.00
 manip_orientation_weight: 0.35
 palm_offset_local: [0.0415, -0.003, 0.0]
 arm_workspace_min: [0.10, -0.28, 0.08]

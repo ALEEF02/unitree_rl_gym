@@ -2287,7 +2287,7 @@ if __name__ == "__main__":
             with cmd_lock:
                 cmd_raw = np.array(cmd_shared, dtype=np.float64, copy=True)
 
-            mode_snapshot = motion_mode_manager.step(sim_time)
+            mode_snapshot = motion_mode_manager.step(sim_time, cmd_raw)
             if mode_snapshot.changed and motion_mode_manager.should_use_walk_policy():
                 walk_leg_controller.reset()
 
@@ -2300,6 +2300,8 @@ if __name__ == "__main__":
                 cmd_policy = cmd_raw.copy()
             else:
                 cmd_policy = np.zeros_like(cmd_raw)
+                vx_trim = 0.0
+                vx_trim_integrator = 0.0
             near_zero_cmd = bool(
                 abs(float(cmd_raw[0])) <= zero_cmd_trim_cmd_eps
                 and abs(float(cmd_raw[1])) <= zero_cmd_trim_cmd_eps
