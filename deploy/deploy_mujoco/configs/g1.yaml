@@ -59,11 +59,11 @@ auto_stand_resume_yaw_threshold: 0.18
 
 upper_body_enabled: true
 leg_actuator_count: 12
-stand_leg_target_angles: [-0.1, 0.0, 0.0, 0.3, -0.2, 0.0, -0.1, 0.0, 0.0, 0.3, -0.2, 0.0]
-stand_leg_max_delta: 0.025
+stand_leg_target_angles: [-0.16, 0.0, 0.0, 0.42, -0.26, 0.0, -0.16, 0.0, 0.0, 0.42, -0.26, 0.0]
+stand_leg_max_delta: 0.06
 stand_leg_joint_rate_limit: 2.0
-stand_base_height_target: 0.79
-stand_pitch_kp: 0.45
+stand_base_height_target: 0.775
+stand_pitch_kp: 0.60
 stand_pitch_kd: 0.09
 stand_roll_kp: 0.35
 stand_roll_kd: 0.08
@@ -71,6 +71,10 @@ stand_vx_kp: 0.18
 stand_vy_kp: 0.12
 stand_height_kp: 0.35
 stand_height_kd: 0.10
+stand_midfoot_offset_x: 0.035
+stand_midfoot_target_x: -0.01
+stand_midfoot_pitch_kp: 0.90
+stand_midfoot_pitch_kd: 0.20
 upper_body_kps: [
   120.0, 120.0, 120.0,
   80.0, 80.0, 80.0, 60.0, 40.0, 40.0, 30.0, 18.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0,
