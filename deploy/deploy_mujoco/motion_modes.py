@@ -389,6 +389,11 @@ class StandLegController:
         self.qpos_adr = qpos_adr
         self.qvel_adr = qvel_adr
         self.act_joint_ids = act_joint_ids[: len(qpos_adr)]
+        self.leg_joint_names = [
+            mujoco.mj_id2name(self.m, mujoco.mjtObj.mjOBJ_JOINT, int(joint_id)) or ""
+            for joint_id in self.act_joint_ids
+        ]
+        self.leg_joint_index = {name: index for index, name in enumerate(self.leg_joint_names)}
         self.joint_ranges = self.m.jnt_range[self.act_joint_ids].astype(np.float64).copy()
         self.base_body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
         self.target = np.array(config.get("stand_leg_target_angles", []), dtype=np.float64)
@@ -406,6 +411,21 @@ class StandLegController:
         self.vy_kp = float(config.get("stand_vy_kp", 0.12))
         self.height_kp = float(config.get("stand_height_kp", 0.35))
         self.height_kd = float(config.get("stand_height_kd", 0.10))
+        self.left_hip_pitch_idx = self._require_joint_index("left_hip_pitch_joint")
+        self.left_hip_roll_idx = self._require_joint_index("left_hip_roll_joint")
+        self.left_knee_idx = self._require_joint_index("left_knee_joint")
+        self.left_ankle_pitch_idx = self._require_joint_index("left_ankle_pitch_joint")
+        self.left_ankle_roll_idx = self._require_joint_index("left_ankle_roll_joint")
+        self.right_hip_pitch_idx = self._require_joint_index("right_hip_pitch_joint")
+        self.right_hip_roll_idx = self._require_joint_index("right_hip_roll_joint")
+        self.right_knee_idx = self._require_joint_index("right_knee_joint")
+        self.right_ankle_pitch_idx = self._require_joint_index("right_ankle_pitch_joint")
+        self.right_ankle_roll_idx = self._require_joint_index("right_ankle_roll_joint")
+
+    def _require_joint_index(self, joint_name: str) -> int:
+        if joint_name not in self.leg_joint_index:
+            raise ValueError(f"StandLegController missing required leg joint: {joint_name}")
+        return int(self.leg_joint_index[joint_name])
 
     def reset(self):
         self.filtered_target = self.d.qpos[self.qpos_adr].copy()
@@ -434,18 +454,17 @@ class StandLegController:
         )
         height_cmd = self.height_kp * (self.base_height_target - pelvis_z) - self.height_kd * z_vel
 
-        # Leg actuator order follows the 12-DoF G1 policy layout.
-        target[2] += pitch_cmd + 0.3 * height_cmd
-        target[3] -= 0.8 * height_cmd
-        target[4] -= pitch_cmd + 0.5 * height_cmd
-        target[8] += pitch_cmd + 0.3 * height_cmd
-        target[9] -= 0.8 * height_cmd
-        target[10] -= pitch_cmd + 0.5 * height_cmd
+        target[self.left_hip_pitch_idx] += pitch_cmd + 0.3 * height_cmd
+        target[self.left_knee_idx] -= 0.8 * height_cmd
+        target[self.left_ankle_pitch_idx] -= pitch_cmd + 0.5 * height_cmd
+        target[self.right_hip_pitch_idx] += pitch_cmd + 0.3 * height_cmd
+        target[self.right_knee_idx] -= 0.8 * height_cmd
+        target[self.right_ankle_pitch_idx] -= pitch_cmd + 0.5 * height_cmd
 
-        target[1] += roll_cmd
-        target[5] -= 1.2 * roll_cmd
-        target[7] -= roll_cmd
-        target[11] += 1.2 * roll_cmd
+        target[self.left_hip_roll_idx] += roll_cmd
+        target[self.left_ankle_roll_idx] -= 1.2 * roll_cmd
+        target[self.right_hip_roll_idx] -= roll_cmd
+        target[self.right_ankle_roll_idx] += 1.2 * roll_cmd
 
         feedback_delta = np.clip(target - self.target, -self.feedback_max_delta, self.feedback_max_delta)
         desired_target = clamp_to_joint_ranges(self.target + feedback_delta, self.joint_ranges)
