@@ -415,6 +415,9 @@ class StandLegController:
         self.midfoot_target_x = float(config.get("stand_midfoot_target_x", -0.01))
         self.midfoot_pitch_kp = float(config.get("stand_midfoot_pitch_kp", 0.90))
         self.midfoot_pitch_kd = float(config.get("stand_midfoot_pitch_kd", 0.20))
+        self.hip_pitch_balance_scale = float(config.get("stand_hip_pitch_balance_scale", 0.90))
+        self.knee_pitch_balance_scale = float(config.get("stand_knee_pitch_balance_scale", 0.20))
+        self.ankle_pitch_balance_scale = float(config.get("stand_ankle_pitch_balance_scale", 1.35))
         self.left_hip_pitch_idx = self._require_joint_index("left_hip_pitch_joint")
         self.left_hip_roll_idx = self._require_joint_index("left_hip_roll_joint")
         self.left_knee_idx = self._require_joint_index("left_knee_joint")
@@ -478,7 +481,7 @@ class StandLegController:
         z_vel = float(cvel[5])
         pelvis_offset_x, pelvis_vel_x = self._midfoot_support_state()
 
-        pitch_cmd = (
+        sagittal_cmd = (
             self.pitch_kp * pitch
             + self.pitch_kd * pitch_rate
             + self.vx_kp * float(base_vel[0])
@@ -492,12 +495,23 @@ class StandLegController:
         )
         height_cmd = self.height_kp * (self.base_height_target - pelvis_z) - self.height_kd * z_vel
 
-        target[self.left_hip_pitch_idx] += pitch_cmd + 0.3 * height_cmd
-        target[self.left_knee_idx] -= 0.8 * height_cmd
-        target[self.left_ankle_pitch_idx] -= pitch_cmd + 0.5 * height_cmd
-        target[self.right_hip_pitch_idx] += pitch_cmd + 0.3 * height_cmd
-        target[self.right_knee_idx] -= 0.8 * height_cmd
-        target[self.right_ankle_pitch_idx] -= pitch_cmd + 0.5 * height_cmd
+        hip_balance_cmd = self.hip_pitch_balance_scale * sagittal_cmd
+        knee_balance_cmd = self.knee_pitch_balance_scale * sagittal_cmd
+        ankle_balance_cmd = self.ankle_pitch_balance_scale * sagittal_cmd
+
+        target[self.left_hip_pitch_idx] -= hip_balance_cmd
+        target[self.left_knee_idx] += knee_balance_cmd
+        target[self.left_ankle_pitch_idx] -= ankle_balance_cmd
+        target[self.right_hip_pitch_idx] -= hip_balance_cmd
+        target[self.right_knee_idx] += knee_balance_cmd
+        target[self.right_ankle_pitch_idx] -= ankle_balance_cmd
+
+        target[self.left_hip_pitch_idx] += 0.20 * height_cmd
+        target[self.left_knee_idx] -= 1.00 * height_cmd
+        target[self.left_ankle_pitch_idx] -= 0.55 * height_cmd
+        target[self.right_hip_pitch_idx] += 0.20 * height_cmd
+        target[self.right_knee_idx] -= 1.00 * height_cmd
+        target[self.right_ankle_pitch_idx] -= 0.55 * height_cmd
 
         target[self.left_hip_roll_idx] += roll_cmd
         target[self.left_ankle_roll_idx] -= 1.2 * roll_cmd

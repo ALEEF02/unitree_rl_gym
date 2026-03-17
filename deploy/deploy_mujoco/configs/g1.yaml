@@ -11,6 +11,8 @@ control_decimation: 10
 
 kps: [100, 100, 100, 150, 40, 40, 100, 100, 100, 150, 40, 40]
 kds: [2, 2, 2, 4, 2, 2, 2, 2, 2, 4, 2, 2]
+stand_kps: [140, 110, 100, 190, 90, 45, 140, 110, 100, 190, 90, 45]
+stand_kds: [3.0, 2.4, 2.0, 5.0, 3.0, 2.0, 3.0, 2.4, 2.0, 5.0, 3.0, 2.0]
 
 default_angles: [-0.1,  0.0,  0.0,  0.3, -0.2, 0.0, 
                   -0.1,  0.0,  0.0,  0.3, -0.2, 0.0]
@@ -59,9 +61,9 @@ auto_stand_resume_yaw_threshold: 0.18
 
 upper_body_enabled: true
 leg_actuator_count: 12
-stand_leg_target_angles: [-0.16, 0.0, 0.0, 0.42, -0.26, 0.0, -0.16, 0.0, 0.0, 0.42, -0.26, 0.0]
-stand_leg_max_delta: 0.06
-stand_leg_joint_rate_limit: 2.0
+stand_leg_target_angles: [-0.14, 0.0, 0.0, 0.40, -0.22, 0.0, -0.14, 0.0, 0.0, 0.40, -0.22, 0.0]
+stand_leg_max_delta: 0.14
+stand_leg_joint_rate_limit: 5.0
 stand_base_height_target: 0.775
 stand_pitch_kp: 0.60
 stand_pitch_kd: 0.09
@@ -72,9 +74,12 @@ stand_vy_kp: 0.12
 stand_height_kp: 0.35
 stand_height_kd: 0.10
 stand_midfoot_offset_x: 0.035
-stand_midfoot_target_x: -0.01
-stand_midfoot_pitch_kp: 0.90
-stand_midfoot_pitch_kd: 0.20
+stand_midfoot_target_x: 0.01
+stand_midfoot_pitch_kp: 1.30
+stand_midfoot_pitch_kd: 0.35
+stand_hip_pitch_balance_scale: 1.05
+stand_knee_pitch_balance_scale: 0.24
+stand_ankle_pitch_balance_scale: 1.60
 upper_body_kps: [
   120.0, 120.0, 120.0,
   80.0, 80.0, 80.0, 60.0, 40.0, 40.0, 30.0, 18.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0,

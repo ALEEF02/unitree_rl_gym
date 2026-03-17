@@ -1922,6 +1922,8 @@ if __name__ == "__main__":
 
         kps = np.array(config["kps"], dtype=np.float32)
         kds = np.array(config["kds"], dtype=np.float32)
+        stand_kps = np.array(config.get("stand_kps", config["kps"]), dtype=np.float32)
+        stand_kds = np.array(config.get("stand_kds", config["kds"]), dtype=np.float32)
 
         default_angles = np.array(config["default_angles"], dtype=np.float32)
 
@@ -2348,13 +2350,15 @@ if __name__ == "__main__":
 
             qj_raw = d.qpos[qpos_adr]
             dqj_raw = d.qvel[qvel_adr]
+            leg_kps = kps if motion_mode_manager.should_use_walk_policy() else stand_kps
+            leg_kds = kds if motion_mode_manager.should_use_walk_policy() else stand_kds
             tau_leg = pd_control(
                 target_dof_pos,
                 qj_raw,
-                kps,
-                np.zeros_like(kds),
+                leg_kps,
+                np.zeros_like(leg_kds),
                 dqj_raw,
-                kds,
+                leg_kds,
             )
             if enforce_actuator_force_clamp:
                 tau_leg = np.clip(tau_leg, force_limit_lower[:num_actions], force_limit_upper[:num_actions])
