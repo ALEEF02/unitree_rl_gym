@@ -93,11 +93,11 @@ upper_body_kds: [
   0.5, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4
 ]
 waist_neutral_pose: [0.0, 0.0, 0.0]
-left_arm_park_pose: [0.20, 0.35, 0.0, 1.25, 0.0, 0.20, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-right_arm_neutral_pose: [0.20, -0.35, 0.0, 1.25, 0.0, 0.20, 0.0]
-right_arm_stow_pose: [0.16, -0.22, 0.26, 1.15, 0.0, 0.22, 0.0]
-right_arm_carry_pose: [0.18, -0.18, 0.30, 1.05, 0.0, 0.18, 0.0]
-right_arm_stand_pose: [0.20, -0.25, 0.0, 1.15, 0.0, 0.20, 0.0]
+left_arm_park_pose: [0.18, 0.32, 0.0, 1.20, 0.0, 0.16, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+right_arm_neutral_pose: [0.18, -0.32, 0.0, 1.20, 0.0, 0.16, 0.0]
+right_arm_stow_pose: [0.18, -0.32, 0.0, 1.20, 0.0, 0.16, 0.0]
+right_arm_carry_pose: [0.18, -0.22, 0.22, 1.00, 0.0, 0.16, 0.0]
+right_arm_stand_pose: [0.18, -0.32, 0.0, 1.20, 0.0, 0.16, 0.0]
 right_hand_open: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 right_hand_close: [0.70, 0.35, -0.90, 1.05, 1.10, 1.00, 1.05]
 hand_interp_rate: 8.0
@@ -113,12 +113,16 @@ posture_task_damping: 0.10
 arm_joint_rate_limit: 1.25
 waist_joint_rate_limit: 0.80
 walk_arm_joint_rate_limit: 0.45
-stand_arm_joint_rate_limit: 0.85
-left_arm_joint_rate_limit: 0.55
-walk_upper_gain_scale: 0.40
-walk_carry_upper_gain_scale: 0.50
-stand_upper_gain_scale: 0.75
+stand_arm_joint_rate_limit: 0.30
+left_arm_joint_rate_limit: 0.30
+walk_upper_gain_scale: 0.18
+walk_carry_upper_gain_scale: 0.22
+stand_upper_gain_scale: 0.20
 manip_upper_gain_scale: 1.00
+walk_waist_gain_scale: 0.10
+walk_carry_waist_gain_scale: 0.12
+stand_waist_gain_scale: 0.08
+manip_waist_gain_scale: 0.35
 manip_orientation_weight: 0.35
 palm_offset_local: [0.0415, -0.003, 0.0]
 arm_workspace_min: [0.10, -0.28, 0.08]

@@ -665,6 +665,10 @@ class HierarchicalUpperBodyController:
         self.walk_carry_upper_gain_scale = float(config.get("walk_carry_upper_gain_scale", 0.55))
         self.stand_upper_gain_scale = float(config.get("stand_upper_gain_scale", 0.80))
         self.manip_upper_gain_scale = float(config.get("manip_upper_gain_scale", 1.0))
+        self.walk_waist_gain_scale = float(config.get("walk_waist_gain_scale", 0.20))
+        self.walk_carry_waist_gain_scale = float(config.get("walk_carry_waist_gain_scale", 0.25))
+        self.stand_waist_gain_scale = float(config.get("stand_waist_gain_scale", 0.18))
+        self.manip_waist_gain_scale = float(config.get("manip_waist_gain_scale", 0.45))
         self.palm_offset_local = np.array(config["palm_offset_local"], dtype=np.float64)
         self.workspace_min = np.array(config["arm_workspace_min"], dtype=np.float64)
         self.workspace_max = np.array(config["arm_workspace_max"], dtype=np.float64)
@@ -809,6 +813,16 @@ class HierarchicalUpperBodyController:
         if mode == MOTION_MODE_STAND_BALANCE:
             return self.stand_upper_gain_scale
         return self.manip_upper_gain_scale
+
+    def _active_waist_gain_scale(self) -> float:
+        mode = self.motion_mode_manager.current_mode
+        if mode == MOTION_MODE_WALK:
+            return self.walk_waist_gain_scale
+        if mode == MOTION_MODE_WALK_CARRY:
+            return self.walk_carry_waist_gain_scale
+        if mode == MOTION_MODE_STAND_BALANCE:
+            return self.stand_waist_gain_scale
+        return self.manip_waist_gain_scale
 
     def _refresh_upper_target(self, dt: float):
         if not self.motion_mode_manager.allow_manipulation_ik():
@@ -1001,13 +1015,23 @@ class HierarchicalUpperBodyController:
         q_upper = self.d.qpos[self.upper_qpos_adr].copy()
         dq_upper = self.d.qvel[self.upper_qvel_adr].copy()
         gain_scale = self._active_gain_scale()
+        waist_gain_scale = self._active_waist_gain_scale()
+        kps = self.upper_kps.copy() * gain_scale
+        kds = self.upper_kds.copy() * gain_scale
+        kps[self.waist_slice] *= waist_gain_scale
+        kds[self.waist_slice] *= waist_gain_scale
+        target_dq = (
+            self.upper_target_dq
+            if self.motion_mode_manager.allow_manipulation_ik()
+            else self.zero_upper_dq
+        )
         return pd_control(
             self.upper_target,
             q_upper,
-            self.upper_kps * gain_scale,
-            self.upper_target_dq,
+            kps,
+            target_dq,
             dq_upper,
-            self.upper_kds * gain_scale,
+            kds,
         )
 
 
