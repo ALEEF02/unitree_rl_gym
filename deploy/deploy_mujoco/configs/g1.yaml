@@ -42,8 +42,28 @@ zero_cmd_trim_decay_tau_sec: 1.0
 drift_eval_settle_sec: 15.0
 drift_eval_log_hz: 1.0
 
+initial_motion_mode: WALK
+mode_transition_timeout_sec: 6.0
+mode_ready_hold_sec: 0.35
+walk_ready_delay_sec: 0.10
+mode_ready_linear_speed_mps: 0.10
+mode_ready_vertical_speed_mps: 0.08
+mode_ready_angular_speed_rps: 0.40
+mode_ready_roll_pitch_rad: 0.22
+
 upper_body_enabled: true
 leg_actuator_count: 12
+stand_leg_target_angles: [-0.1, 0.0, 0.0, 0.3, -0.2, 0.0, -0.1, 0.0, 0.0, 0.3, -0.2, 0.0]
+stand_leg_max_delta: 0.025
+stand_base_height_target: 0.79
+stand_pitch_kp: 0.45
+stand_pitch_kd: 0.09
+stand_roll_kp: 0.35
+stand_roll_kd: 0.08
+stand_vx_kp: 0.18
+stand_vy_kp: 0.12
+stand_height_kp: 0.35
+stand_height_kd: 0.10
 upper_body_kps: [
   120.0, 120.0, 120.0,
   80.0, 80.0, 80.0, 60.0, 40.0, 40.0, 30.0, 18.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0,
@@ -59,17 +79,27 @@ upper_body_kds: [
 waist_neutral_pose: [0.0, 0.0, 0.0]
 left_arm_park_pose: [0.20, 0.35, 0.0, 1.25, 0.0, 0.20, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 right_arm_neutral_pose: [0.20, -0.35, 0.0, 1.25, 0.0, 0.20, 0.0]
+right_arm_stow_pose: [0.16, -0.22, 0.26, 1.15, 0.0, 0.22, 0.0]
+right_arm_carry_pose: [0.18, -0.18, 0.30, 1.05, 0.0, 0.18, 0.0]
+right_arm_stand_pose: [0.20, -0.25, 0.0, 1.15, 0.0, 0.20, 0.0]
 right_hand_open: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 right_hand_close: [0.70, 0.35, -0.90, 1.05, 1.10, 1.00, 1.05]
 hand_interp_rate: 8.0
 hand_state_tolerance: 0.06
 arm_goal_timeout_sec: 5.0
 arm_goal_tolerance: 0.03
-arm_ik_damping: 0.12
-arm_ik_step_gain: 0.45
-arm_ik_regularization: 0.12
-arm_ik_max_delta: 0.08
+arm_task_gain: 0.45
+arm_task_damping: 0.10
+torso_task_gain: 0.25
+torso_task_damping: 0.08
+posture_task_gain: 0.18
+posture_task_damping: 0.10
+arm_joint_rate_limit: 1.25
+waist_joint_rate_limit: 0.80
+manip_orientation_weight: 0.35
 palm_offset_local: [0.0415, -0.003, 0.0]
+arm_workspace_min: [0.10, -0.28, 0.08]
+arm_workspace_max: [0.34, -0.08, 0.42]
 grasp_capture_halfsize: [0.085, 0.055, 0.055]
 grasp_contact_frames: 6
 grasp_loss_frames: 4

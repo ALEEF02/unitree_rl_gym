@@ -17,6 +17,13 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 
+from motion_modes import (
+    HierarchicalUpperBodyController,
+    MotionModeManager,
+    StandLegController,
+    WalkLegController,
+)
+
 ROS2_ENABLED = False
 try:
     import rclpy
@@ -191,9 +198,20 @@ class MujocoROS2Bridge(Node):
         self._hand_command = "open"
         self._hand_state = "OPEN"
         self._grasped_object_label = ""
+        self._motion_mode_command = "WALK"
+        self._motion_mode_state = "WALK"
+        self._motion_mode_status = "TRANSITIONING"
         self.pub_arm_status = None
         self.pub_hand_state = None
         self.pub_grasp_label = None
+        self.pub_motion_mode_state = self.create_publisher(String, "/unitree/motion_mode/state", 10)
+        self.pub_motion_mode_status = self.create_publisher(String, "/unitree/motion_mode/status", 10)
+        self.sub_motion_mode_command = self.create_subscription(
+            String,
+            "/unitree/motion_mode/command",
+            self._motion_mode_command_cb,
+            10,
+        )
         if self.is_with_hand_model:
             self.pub_arm_status = self.create_publisher(String, "/unitree/right_arm/status", 10)
             self.pub_hand_state = self.create_publisher(String, "/unitree/right_hand/state", 10)
@@ -309,6 +327,10 @@ class MujocoROS2Bridge(Node):
             self._hand_command_seq += 1
             self._hand_state = "MOVING"
 
+    def _motion_mode_command_cb(self, msg: String):
+        with self.arm_goal_lock:
+            self._motion_mode_command = str(msg.data).strip().upper() or "WALK"
+
     def get_manipulation_commands(self) -> dict:
         with self.arm_goal_lock:
             if self._arm_goal_msg is None:
@@ -341,6 +363,10 @@ class MujocoROS2Bridge(Node):
                 "hand_command_seq": int(self._hand_command_seq),
             }
 
+    def get_motion_mode_command(self) -> str:
+        with self.arm_goal_lock:
+            return str(self._motion_mode_command)
+
     def set_arm_status(self, status: str):
         with self.arm_goal_lock:
             self._arm_status = str(status).strip().upper() or "IDLE"
@@ -353,6 +379,14 @@ class MujocoROS2Bridge(Node):
         with self.arm_goal_lock:
             self._grasped_object_label = str(label).strip()
 
+    def set_motion_mode_state(self, mode: str):
+        with self.arm_goal_lock:
+            self._motion_mode_state = str(mode).strip().upper() or "WALK"
+
+    def set_motion_mode_status(self, status: str):
+        with self.arm_goal_lock:
+            self._motion_mode_status = str(status).strip().upper() or "TRANSITIONING"
+
     def _publish_string(self, publisher, data: str):
         if publisher is None:
             return
@@ -361,12 +395,16 @@ class MujocoROS2Bridge(Node):
         publisher.publish(msg)
 
     def publish_manipulation_state(self):
-        if not self.is_with_hand_model:
-            return
         with self.arm_goal_lock:
             arm_status = self._arm_status
             hand_state = self._hand_state
             grasped_object_label = self._grasped_object_label
+            motion_mode_state = self._motion_mode_state
+            motion_mode_status = self._motion_mode_status
+        self._publish_string(self.pub_motion_mode_state, motion_mode_state)
+        self._publish_string(self.pub_motion_mode_status, motion_mode_status)
+        if not self.is_with_hand_model:
+            return
         self._publish_string(self.pub_arm_status, arm_status)
         self._publish_string(self.pub_hand_state, hand_state)
         self._publish_string(self.pub_grasp_label, grasped_object_label)
@@ -2079,19 +2117,55 @@ if __name__ == "__main__":
         ros_bridge = None
         print("[ROS2] rclpy not available; ROS publishing")
 
-    upper_body_controller = UpperBodyController(m, d, config, ros_bridge=ros_bridge)
+    pelvis_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
+    if pelvis_body_id < 0:
+        raise ValueError("Body 'pelvis' not found for stability logging")
+
+    motion_mode_manager = MotionModeManager(m, d, config, ros_bridge=ros_bridge)
+    walk_leg_controller = WalkLegController(
+        m=m,
+        d=d,
+        qpos_adr=qpos_adr,
+        qvel_adr=qvel_adr,
+        pelvis_body_id=pelvis_body_id,
+        policy=policy,
+        default_angles=default_angles,
+        action_scale=action_scale,
+        cmd_scale=cmd_scale,
+        dof_pos_scale=dof_pos_scale,
+        dof_vel_scale=dof_vel_scale,
+        ang_vel_scale=ang_vel_scale,
+        control_decimation=control_decimation,
+        num_actions=num_actions,
+        num_obs=num_obs,
+    )
+    stand_leg_controller = StandLegController(
+        m=m,
+        d=d,
+        qpos_adr=qpos_adr,
+        qvel_adr=qvel_adr,
+        act_joint_ids=act_joint_ids,
+        config=config,
+    )
+    upper_body_controller = HierarchicalUpperBodyController(
+        m,
+        d,
+        config,
+        motion_mode_manager=motion_mode_manager,
+        ros_bridge=ros_bridge,
+    )
+    print("[motion-modes] Topics:")
+    print("  /unitree/motion_mode/command (std_msgs/String)")
+    print("  /unitree/motion_mode/state (std_msgs/String)")
+    print("  /unitree/motion_mode/status (std_msgs/String)")
     if upper_body_controller.enabled:
-        print("[upper-body] Enabled custom waist/right-arm/right-hand control")
+        print("[upper-body] Enabled hierarchical waist/right-arm/right-hand control")
         print("[upper-body] Topics:")
         print("  /unitree/right_arm/goal_pose (geometry_msgs/PoseStamped)")
         print("  /unitree/right_arm/status (std_msgs/String)")
         print("  /unitree/right_hand/command (std_msgs/String)")
         print("  /unitree/right_hand/state (std_msgs/String)")
         print("  /unitree/grasped_object_label (std_msgs/String)")
-
-    pelvis_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
-    if pelvis_body_id < 0:
-        raise ValueError("Body 'pelvis' not found for stability logging")
 
     stability_log_period = None
     if stability_log_hz > 0.0:
@@ -2213,19 +2287,26 @@ if __name__ == "__main__":
             with cmd_lock:
                 cmd_raw = np.array(cmd_shared, dtype=np.float64, copy=True)
 
+            mode_snapshot = motion_mode_manager.step(sim_time)
+            if mode_snapshot.changed and motion_mode_manager.should_use_walk_policy():
+                walk_leg_controller.reset()
+
             R_w_base_for_trim = d.xmat[pelvis_body_id].reshape(3, 3)
             v_world_for_trim = d.cvel[pelvis_body_id, 3:6]
             v_base_for_trim = R_w_base_for_trim.T @ v_world_for_trim
             vx_measured_base = float(v_base_for_trim[0])
 
-            cmd_policy = cmd_raw.copy()
+            if motion_mode_manager.should_use_walk_policy():
+                cmd_policy = cmd_raw.copy()
+            else:
+                cmd_policy = np.zeros_like(cmd_raw)
             near_zero_cmd = bool(
                 abs(float(cmd_raw[0])) <= zero_cmd_trim_cmd_eps
                 and abs(float(cmd_raw[1])) <= zero_cmd_trim_cmd_eps
                 and abs(float(cmd_raw[2])) <= zero_cmd_trim_cmd_eps
             )
 
-            if zero_cmd_trim_enabled and near_zero_cmd:
+            if zero_cmd_trim_enabled and motion_mode_manager.should_use_walk_policy() and near_zero_cmd:
                 vx_error = -vx_measured_base
                 vx_trim_integrator += vx_error * m.opt.timestep
                 vx_trim_integrator = float(
@@ -2244,13 +2325,22 @@ if __name__ == "__main__":
                 vx_trim *= decay
                 vx_trim_integrator *= decay
 
-            if zero_cmd_trim_enabled and near_zero_cmd:
+            if zero_cmd_trim_enabled and motion_mode_manager.should_use_walk_policy() and near_zero_cmd:
                 cmd_policy[0] = float(cmd_policy[0] + vx_trim)
 
             # --- Robust joint state extraction for PD control ---
             t0 = time.perf_counter()
             if upper_body_controller.enabled:
                 upper_body_controller.step(sim_time, m.opt.timestep)
+
+            if motion_mode_manager.should_use_walk_policy():
+                target_dof_pos = walk_leg_controller.step(cmd_policy)
+                action = walk_leg_controller.action.copy()
+                obs = walk_leg_controller.obs.copy()
+            else:
+                target_dof_pos = stand_leg_controller.compute_target()
+                action = np.zeros(num_actions, dtype=np.float32)
+                obs.fill(0.0)
 
             qj_raw = d.qpos[qpos_adr]
             dqj_raw = d.qvel[qvel_adr]
@@ -2302,7 +2392,7 @@ if __name__ == "__main__":
                     f"t={sim_time:.2f}s z={float(pelvis_pos[2]):.3f} "
                     f"roll={roll_proxy:.3f} pitch={pitch_proxy:.3f} "
                     f"|tau_leg|max={leg_tau_max:.1f} |tau_upper|max={upper_tau_max:.1f} "
-                    f"ncon={int(d.ncon)}"
+                    f"ncon={int(d.ncon)} mode={motion_mode_manager.current_mode} status={motion_mode_manager.status}"
                 )
 
             if drift_ref_xy is None and sim_time >= drift_eval_settle_sec:
@@ -2332,35 +2422,6 @@ if __name__ == "__main__":
                 )
 
             counter += 1
-            if counter % control_decimation == 0:
-                # Apply control signal here.
-                qj = d.qpos[qpos_adr].copy()
-                dqj = d.qvel[qvel_adr].copy()
-                quat = d.qpos[3:7]
-                omega = d.qvel[3:6]
-
-                qj = (qj - default_angles) * dof_pos_scale
-                dqj = dqj * dof_vel_scale
-                gravity_orientation = get_gravity_orientation(quat)
-                omega = omega * ang_vel_scale
-
-                period = 0.8
-                count = counter * simulation_dt
-                phase = count % period / period
-                sin_phase = np.sin(2 * np.pi * phase)
-                cos_phase = np.cos(2 * np.pi * phase)
-
-                obs[:3] = omega
-                obs[3:6] = gravity_orientation
-                obs[6:9] = cmd_policy * cmd_scale
-                obs[9 : 9 + num_actions] = qj
-                obs[9 + num_actions : 9 + 2 * num_actions] = dqj
-                obs[9 + 2 * num_actions : 9 + 3 * num_actions] = action
-                obs[9 + 3 * num_actions : 9 + 3 * num_actions + 2] = np.array([sin_phase, cos_phase])
-
-                obs_tensor = torch.from_numpy(obs).unsqueeze(0)
-                action = policy(obs_tensor).detach().numpy().squeeze()
-                target_dof_pos = action * action_scale + default_angles
 
             if viewer is not None:
                 t0 = time.perf_counter()
