@@ -20,6 +20,8 @@ import json
 from motion_modes import (
     HierarchicalUpperBodyController,
     MotionModeManager,
+    resolve_upright_body_id,
+    rotation_matrix_to_roll_pitch,
     StandLegController,
     WalkLegController,
 )
@@ -2122,6 +2124,9 @@ if __name__ == "__main__":
     pelvis_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
     if pelvis_body_id < 0:
         raise ValueError("Body 'pelvis' not found for stability logging")
+    upright_body_id = resolve_upright_body_id(m, fallback_body_id=pelvis_body_id)
+    upright_body_name = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, upright_body_id) or "pelvis"
+    print(f"[stability] Upright orientation body: {upright_body_name}")
 
     motion_mode_manager = MotionModeManager(m, d, config, ros_bridge=ros_bridge)
     walk_leg_controller = WalkLegController(
@@ -2387,18 +2392,14 @@ if __name__ == "__main__":
             if stability_log_period is not None and sim_time + 1e-12 >= last_stability_log_t + stability_log_period:
                 last_stability_log_t = sim_time
                 pelvis_pos = d.xpos[pelvis_body_id]
-                R_w_base = d.xmat[pelvis_body_id].reshape(3, 3)
-                roll_proxy = math.atan2(float(R_w_base[2, 1]), float(R_w_base[2, 2]))
-                pitch_proxy = math.atan2(
-                    float(-R_w_base[2, 0]),
-                    float(np.sqrt(R_w_base[2, 1] ** 2 + R_w_base[2, 2] ** 2)),
-                )
+                upright_rot = d.xmat[upright_body_id].reshape(3, 3)
+                upright_roll, upright_pitch = rotation_matrix_to_roll_pitch(upright_rot)
                 leg_tau_max = float(np.max(np.abs(tau_leg))) if tau_leg.size > 0 else 0.0
                 upper_tau_max = float(np.max(np.abs(tau_upper))) if tau_upper.size > 0 else 0.0
                 print(
                     "[stability] "
                     f"t={sim_time:.2f}s z={float(pelvis_pos[2]):.3f} "
-                    f"roll={roll_proxy:.3f} pitch={pitch_proxy:.3f} "
+                    f"roll={upright_roll:.3f} pitch={upright_pitch:.3f} "
                     f"|tau_leg|max={leg_tau_max:.1f} |tau_upper|max={upper_tau_max:.1f} "
                     f"ncon={int(d.ncon)} mode={motion_mode_manager.current_mode} status={motion_mode_manager.status}"
                 )

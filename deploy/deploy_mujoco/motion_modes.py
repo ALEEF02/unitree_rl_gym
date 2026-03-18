@@ -86,6 +86,29 @@ def rotation_error(desired_rot: np.ndarray, current_rot: np.ndarray) -> np.ndarr
     return 0.5 * skew
 
 
+def rotation_matrix_to_roll_pitch(rot: np.ndarray) -> tuple[float, float]:
+    roll = math.atan2(float(rot[2, 1]), float(rot[2, 2]))
+    pitch = math.atan2(float(-rot[2, 0]), float(np.sqrt(rot[2, 1] ** 2 + rot[2, 2] ** 2)))
+    return roll, pitch
+
+
+def resolve_upright_body_id(
+    m: mujoco.MjModel,
+    *,
+    preferred_name: str = "torso_link",
+    fallback_body_id: int | None = None,
+) -> int:
+    preferred_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, preferred_name)
+    if preferred_body_id >= 0:
+        return int(preferred_body_id)
+    if fallback_body_id is not None and int(fallback_body_id) >= 0:
+        return int(fallback_body_id)
+    pelvis_body_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
+    if pelvis_body_id >= 0:
+        return int(pelvis_body_id)
+    raise ValueError(f"Could not resolve upright body '{preferred_name}' or fallback pelvis body")
+
+
 def damped_task_step(
     jacobian: np.ndarray,
     error: np.ndarray,
@@ -120,6 +143,7 @@ class MotionModeManager:
         self.d = d
         self.ros_bridge = ros_bridge
         self.base_body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
+        self.upright_body_id = resolve_upright_body_id(self.m, fallback_body_id=self.base_body_id)
         self.requested_mode = str(config.get("initial_motion_mode", MOTION_MODE_WALK)).strip().upper()
         if self.requested_mode not in VALID_MOTION_MODES:
             self.requested_mode = MOTION_MODE_WALK
@@ -229,13 +253,13 @@ class MotionModeManager:
             self._idle_since = None
 
     def _standing_ready(self) -> bool:
-        base_rot = self.d.xmat[self.base_body_id].reshape(3, 3)
-        roll = math.atan2(float(base_rot[2, 1]), float(base_rot[2, 2]))
-        pitch = math.atan2(float(-base_rot[2, 0]), float(np.sqrt(base_rot[2, 1] ** 2 + base_rot[2, 2] ** 2)))
-        cvel = self.d.cvel[self.base_body_id]
-        angular_speed = float(np.linalg.norm(cvel[:3]))
-        linear_speed = float(np.linalg.norm(cvel[3:5]))
-        vertical_speed = float(abs(cvel[5]))
+        upright_rot = self.d.xmat[self.upright_body_id].reshape(3, 3)
+        roll, pitch = rotation_matrix_to_roll_pitch(upright_rot)
+        upright_cvel = self.d.cvel[self.upright_body_id]
+        pelvis_cvel = self.d.cvel[self.base_body_id]
+        angular_speed = float(np.linalg.norm(upright_cvel[:3]))
+        linear_speed = float(np.linalg.norm(pelvis_cvel[3:5]))
+        vertical_speed = float(abs(pelvis_cvel[5]))
         return (
             abs(roll) <= self.ready_roll_pitch_rad
             and abs(pitch) <= self.ready_roll_pitch_rad
@@ -396,6 +420,7 @@ class StandLegController:
         self.leg_joint_index = {name: index for index, name in enumerate(self.leg_joint_names)}
         self.joint_ranges = self.m.jnt_range[self.act_joint_ids].astype(np.float64).copy()
         self.base_body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
+        self.upright_body_id = resolve_upright_body_id(self.m, fallback_body_id=self.base_body_id)
         self.target = np.array(config.get("stand_leg_target_angles", []), dtype=np.float64)
         if self.target.shape != qpos_adr.shape:
             self.target = self.d.qpos[self.qpos_adr].copy()
@@ -470,15 +495,16 @@ class StandLegController:
 
     def compute_target(self) -> np.ndarray:
         target = self.target.copy()
-        base_rot = self.d.xmat[self.base_body_id].reshape(3, 3)
-        cvel = self.d.cvel[self.base_body_id]
-        base_vel = base_rot.T @ cvel[3:6]
-        roll = math.atan2(float(base_rot[2, 1]), float(base_rot[2, 2]))
-        pitch = math.atan2(float(-base_rot[2, 0]), float(np.sqrt(base_rot[2, 1] ** 2 + base_rot[2, 2] ** 2)))
-        roll_rate = float(cvel[0])
-        pitch_rate = float(cvel[1])
+        pelvis_rot = self.d.xmat[self.base_body_id].reshape(3, 3)
+        pelvis_cvel = self.d.cvel[self.base_body_id]
+        upright_rot = self.d.xmat[self.upright_body_id].reshape(3, 3)
+        upright_cvel = self.d.cvel[self.upright_body_id]
+        base_vel = pelvis_rot.T @ pelvis_cvel[3:6]
+        roll, pitch = rotation_matrix_to_roll_pitch(upright_rot)
+        roll_rate = float(upright_cvel[0])
+        pitch_rate = float(upright_cvel[1])
         pelvis_z = float(self.d.xpos[self.base_body_id][2])
-        z_vel = float(cvel[5])
+        z_vel = float(pelvis_cvel[5])
         pelvis_offset_x, pelvis_vel_x = self._midfoot_support_state()
 
         sagittal_cmd = (
