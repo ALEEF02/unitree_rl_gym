@@ -80,6 +80,11 @@ stand_midfoot_pitch_kd: 0.35
 stand_hip_pitch_balance_scale: 1.05
 stand_knee_pitch_balance_scale: 0.24
 stand_ankle_pitch_balance_scale: 1.60
+stand_hip_roll_balance_scale: 1.00
+stand_ankle_roll_balance_scale: 1.20
+stand_height_hip_pitch_scale: 0.20
+stand_height_knee_scale: 1.00
+stand_height_ankle_pitch_scale: 0.55
 upper_body_kps: [
   120.0, 120.0, 120.0,
   80.0, 80.0, 80.0, 60.0, 40.0, 40.0, 30.0, 18.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0,

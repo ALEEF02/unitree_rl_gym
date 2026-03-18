@@ -443,6 +443,11 @@ class StandLegController:
         self.hip_pitch_balance_scale = float(config.get("stand_hip_pitch_balance_scale", 0.90))
         self.knee_pitch_balance_scale = float(config.get("stand_knee_pitch_balance_scale", 0.20))
         self.ankle_pitch_balance_scale = float(config.get("stand_ankle_pitch_balance_scale", 1.35))
+        self.hip_roll_balance_scale = float(config.get("stand_hip_roll_balance_scale", 1.00))
+        self.ankle_roll_balance_scale = float(config.get("stand_ankle_roll_balance_scale", 1.20))
+        self.height_hip_pitch_scale = float(config.get("stand_height_hip_pitch_scale", 0.20))
+        self.height_knee_scale = float(config.get("stand_height_knee_scale", 1.00))
+        self.height_ankle_pitch_scale = float(config.get("stand_height_ankle_pitch_scale", 0.55))
         self.left_hip_pitch_idx = self._require_joint_index("left_hip_pitch_joint")
         self.left_hip_roll_idx = self._require_joint_index("left_hip_roll_joint")
         self.left_knee_idx = self._require_joint_index("left_knee_joint")
@@ -532,17 +537,17 @@ class StandLegController:
         target[self.right_knee_idx] += knee_balance_cmd
         target[self.right_ankle_pitch_idx] -= ankle_balance_cmd
 
-        target[self.left_hip_pitch_idx] += 0.20 * height_cmd
-        target[self.left_knee_idx] -= 1.00 * height_cmd
-        target[self.left_ankle_pitch_idx] -= 0.55 * height_cmd
-        target[self.right_hip_pitch_idx] += 0.20 * height_cmd
-        target[self.right_knee_idx] -= 1.00 * height_cmd
-        target[self.right_ankle_pitch_idx] -= 0.55 * height_cmd
+        target[self.left_hip_pitch_idx] += self.height_hip_pitch_scale * height_cmd
+        target[self.left_knee_idx] -= self.height_knee_scale * height_cmd
+        target[self.left_ankle_pitch_idx] -= self.height_ankle_pitch_scale * height_cmd
+        target[self.right_hip_pitch_idx] += self.height_hip_pitch_scale * height_cmd
+        target[self.right_knee_idx] -= self.height_knee_scale * height_cmd
+        target[self.right_ankle_pitch_idx] -= self.height_ankle_pitch_scale * height_cmd
 
-        target[self.left_hip_roll_idx] += roll_cmd
-        target[self.left_ankle_roll_idx] -= 1.2 * roll_cmd
-        target[self.right_hip_roll_idx] -= roll_cmd
-        target[self.right_ankle_roll_idx] += 1.2 * roll_cmd
+        target[self.left_hip_roll_idx] += self.hip_roll_balance_scale * roll_cmd
+        target[self.left_ankle_roll_idx] -= self.ankle_roll_balance_scale * roll_cmd
+        target[self.right_hip_roll_idx] -= self.hip_roll_balance_scale * roll_cmd
+        target[self.right_ankle_roll_idx] += self.ankle_roll_balance_scale * roll_cmd
 
         feedback_delta = np.clip(target - self.target, -self.feedback_max_delta, self.feedback_max_delta)
         desired_target = clamp_to_joint_ranges(self.target + feedback_delta, self.joint_ranges)
