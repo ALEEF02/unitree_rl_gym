@@ -437,9 +437,13 @@ class StandLegController:
         self.height_kp = float(config.get("stand_height_kp", 0.35))
         self.height_kd = float(config.get("stand_height_kd", 0.10))
         self.midfoot_offset_x = float(config.get("stand_midfoot_offset_x", 0.035))
+        self.midfoot_offset_y = float(config.get("stand_midfoot_offset_y", 0.0))
         self.midfoot_target_x = float(config.get("stand_midfoot_target_x", -0.01))
+        self.midfoot_target_y = float(config.get("stand_midfoot_target_y", 0.0))
         self.midfoot_pitch_kp = float(config.get("stand_midfoot_pitch_kp", 0.90))
         self.midfoot_pitch_kd = float(config.get("stand_midfoot_pitch_kd", 0.20))
+        self.midfoot_roll_kp = float(config.get("stand_midfoot_roll_kp", 0.0))
+        self.midfoot_roll_kd = float(config.get("stand_midfoot_roll_kd", 0.0))
         self.hip_pitch_balance_scale = float(config.get("stand_hip_pitch_balance_scale", 0.90))
         self.knee_pitch_balance_scale = float(config.get("stand_knee_pitch_balance_scale", 0.20))
         self.ankle_pitch_balance_scale = float(config.get("stand_ankle_pitch_balance_scale", 1.35))
@@ -469,17 +473,17 @@ class StandLegController:
     def reset(self):
         self.filtered_target = self.d.qpos[self.qpos_adr].copy()
 
-    def _midfoot_support_state(self) -> tuple[float, float]:
+    def _midfoot_support_state(self) -> tuple[float, float, float, float]:
         pelvis_pos = self.d.xpos[self.base_body_id].copy()
         pelvis_vel_world = self.d.cvel[self.base_body_id][3:6].copy()
         left_rot = self.d.xmat[self.left_foot_body_id].reshape(3, 3)
         right_rot = self.d.xmat[self.right_foot_body_id].reshape(3, 3)
         left_midfoot = self.d.xpos[self.left_foot_body_id].copy() + left_rot @ np.array(
-            [self.midfoot_offset_x, 0.0, 0.0],
+            [self.midfoot_offset_x, self.midfoot_offset_y, 0.0],
             dtype=np.float64,
         )
         right_midfoot = self.d.xpos[self.right_foot_body_id].copy() + right_rot @ np.array(
-            [self.midfoot_offset_x, 0.0, 0.0],
+            [self.midfoot_offset_x, self.midfoot_offset_y, 0.0],
             dtype=np.float64,
         )
         support_midpoint = 0.5 * (left_midfoot + right_midfoot)
@@ -494,9 +498,22 @@ class StandLegController:
             support_forward = np.array([1.0, 0.0, 0.0], dtype=np.float64)
         else:
             support_forward /= norm
+        support_lateral = left_rot[:, 1] + right_rot[:, 1]
+        support_lateral[2] = 0.0
+        support_lateral = support_lateral - float(np.dot(support_lateral, support_forward)) * support_forward
+        lat_norm = float(np.linalg.norm(support_lateral))
+        if lat_norm < 1e-6:
+            support_lateral = np.array([-support_forward[1], support_forward[0], 0.0], dtype=np.float64)
+            lat_norm = float(np.linalg.norm(support_lateral))
+        if lat_norm < 1e-6:
+            support_lateral = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+        else:
+            support_lateral /= lat_norm
         pelvis_offset_x = float(np.dot(pelvis_pos - support_midpoint, support_forward))
         pelvis_vel_x = float(np.dot(pelvis_vel_world, support_forward))
-        return pelvis_offset_x, pelvis_vel_x
+        pelvis_offset_y = float(np.dot(pelvis_pos - support_midpoint, support_lateral))
+        pelvis_vel_y = float(np.dot(pelvis_vel_world, support_lateral))
+        return pelvis_offset_x, pelvis_vel_x, pelvis_offset_y, pelvis_vel_y
 
     def compute_target(self) -> np.ndarray:
         target = self.target.copy()
@@ -510,7 +527,7 @@ class StandLegController:
         pitch_rate = float(upright_cvel[1])
         pelvis_z = float(self.d.xpos[self.base_body_id][2])
         z_vel = float(pelvis_cvel[5])
-        pelvis_offset_x, pelvis_vel_x = self._midfoot_support_state()
+        pelvis_offset_x, pelvis_vel_x, pelvis_offset_y, pelvis_vel_y = self._midfoot_support_state()
 
         sagittal_cmd = (
             self.pitch_kp * pitch
@@ -523,6 +540,8 @@ class StandLegController:
             self.roll_kp * roll
             + self.roll_kd * roll_rate
             + self.vy_kp * float(base_vel[1])
+            + self.midfoot_roll_kp * (self.midfoot_target_y - pelvis_offset_y)
+            - self.midfoot_roll_kd * pelvis_vel_y
         )
         height_cmd = self.height_kp * (self.base_height_target - pelvis_z) - self.height_kd * z_vel
 

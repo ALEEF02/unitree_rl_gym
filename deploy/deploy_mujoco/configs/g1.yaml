@@ -74,9 +74,13 @@ stand_vy_kp: 0.12
 stand_height_kp: 0.35
 stand_height_kd: 0.10
 stand_midfoot_offset_x: 0.035
+stand_midfoot_offset_y: 0.0
 stand_midfoot_target_x: 0.01
+stand_midfoot_target_y: 0.0
 stand_midfoot_pitch_kp: 1.30
 stand_midfoot_pitch_kd: 0.35
+stand_midfoot_roll_kp: 0.0
+stand_midfoot_roll_kd: 0.0
 stand_hip_pitch_balance_scale: 1.05
 stand_knee_pitch_balance_scale: 0.24
 stand_ankle_pitch_balance_scale: 1.60
