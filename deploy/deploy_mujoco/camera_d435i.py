@@ -46,7 +46,7 @@ class D435iDepthSim:
         max_points: int = 200_000,            # safety cap for dense clouds
         output_frame: str = "camera",         # "camera" | "world"
         seed: int = 1,
-        rendered_depth_is_range: bool = True,
+        rendered_depth_is_range: bool = False,
 
         # Mounting offset (like we did for LiDAR): sensor frame -> site frame
         mount_roll_deg: float = 0.0,
@@ -91,7 +91,10 @@ class D435iDepthSim:
         fovy_deg = float(self.m.cam_fovy[self.cam_id])  # vertical FOV in degrees
         fovy = math.radians(fovy_deg)
         fy_default = 0.5 * self.height / math.tan(0.5 * fovy)
-        fx_default = fy_default * (self.width / self.height)
+        # MuJoCo's perspective camera uses a vertical FOV and square pixels.
+        # The horizontal FOV follows from the viewport aspect ratio, so fx and
+        # fy are equal in pixel units.
+        fx_default = fy_default
 
         if fx is None: fx = fx_default
         if fy is None: fy = fy_default
@@ -165,9 +168,10 @@ class D435iDepthSim:
         v = np.arange(self.height, dtype=np.float32)
         self._uu, self._vv = np.meshgrid(u, v)  # (H,W)
 
-        # Precompute per-pixel factor to convert range-along-ray -> z-depth
-        # If a pixel ray direction in optical frame is [x, y, 1] (unnormalized),
-        # unit ray z-component is 1 / sqrt(x^2 + y^2 + 1).
+        # Precompute the per-pixel factor used only when a future/non-MuJoCo
+        # backend reports Euclidean range along each ray. MuJoCo Renderer depth
+        # is already metric camera-plane Z depth, so the default path does not
+        # apply this factor.
         x = (self._uu - self.cx) / self.fx
         y = (self._vv - self.cy) / self.fy
         self._x_norm = x.astype(np.float32)
@@ -497,6 +501,12 @@ class D435iDepthSim:
         return depth_z, depth_mm_u16, pts_opt, pix, cols
 
     def _render_depth_to_z(self, depth_render_m: np.ndarray) -> np.ndarray:
+        """Return RealSense-style optical Z depth in meters.
+
+        MuJoCo Renderer depth is already metric camera-plane Z depth. Keep the
+        range conversion switch for future backends that provide Euclidean
+        distance along each pixel ray instead.
+        """
         if self.rendered_depth_is_range:
             depth_z = depth_render_m.astype(np.float32, copy=False) * self._ray_unit_z
         else:
