@@ -543,16 +543,27 @@ class D435iDepthSim:
 
         return pts_opt, pix, cols_rgb
 
-    def _render_fast_depth_image_mm_u16(self, depth_render_m: np.ndarray, rgb_u8: np.ndarray):
+    def _render_fast_depth_image_mm_u16(
+        self,
+        depth_render_m: np.ndarray,
+        rgb_u8: np.ndarray,
+        *,
+        build_pointcloud: bool,
+    ):
         depth_z = self._render_depth_to_z(depth_render_m)
         t0 = time.perf_counter()
         depth_z = self._apply_depth_model(depth_z)
         self._add_stat_time("t_depth_model_s", time.perf_counter() - t0)
 
         depth_mm_u16 = np.clip(depth_z * 1000.0, 0, 65535).astype(np.uint16)
-        t0 = time.perf_counter()
-        pts_opt, pix, cols = self._pointcloud_from_depth_z(depth_z, rgb_u8)
-        self._add_stat_time("t_depth_to_pc_s", time.perf_counter() - t0)
+        if build_pointcloud:
+            t0 = time.perf_counter()
+            pts_opt, pix, cols = self._pointcloud_from_depth_z(depth_z, rgb_u8)
+            self._add_stat_time("t_depth_to_pc_s", time.perf_counter() - t0)
+        else:
+            pts_opt = np.zeros((0, 3), dtype=np.float32)
+            pix = np.zeros((0, 2), dtype=np.int32)
+            cols = np.zeros((0, 3), dtype=np.uint8)
         return depth_z, depth_mm_u16, pts_opt, pix, cols
 
 
@@ -613,6 +624,7 @@ class D435iDepthSim:
             depth_z_m, depth_mm_u16, pts_cam_optical, pix, colors = self._render_fast_depth_image_mm_u16(
                 depth_render_m,
                 rgb_u8,
+                build_pointcloud=self.output_pointcloud,
             )
 
         frame = {

@@ -1088,6 +1088,7 @@ def rgb_u8_to_jpeg_bytes(rgb_u8: np.ndarray, quality: int = 80) -> bytes:
 
 from lidar_livox_mid360 import LivoxMid360Sim
 from camera_d435i import D435iDepthSim
+from sensor_runtime_config import resolve_sensor_runtime_config
 
 def draw_multiple_world_point_sets(
     viewer,
@@ -1265,7 +1266,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mapping-mode",
         action="store_true",
-        help="Enable mapping-oriented runtime defaults without changing legacy behavior",
+        help="Backward-compatible alias for realtime sensor defaults",
+    )
+    parser.add_argument(
+        "--sensor-mode",
+        choices=("realtime", "fidelity", "off"),
+        default=None,
+        help="Sensor runtime profile: realtime is the default, fidelity preserves legacy sensor cost, off disables D435/LiDAR",
     )
     parser.add_argument(
         "--headless",
@@ -1275,7 +1282,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--web-ui",
         action="store_true",
-        help="Enable command web UI in mapping mode (legacy mode already enables it by default)",
+        help="Enable command web UI (default only in fidelity mode)",
     )
     # Sensor visualization controls (MuJoCo overlay markers)
     parser.add_argument(
@@ -1298,35 +1305,37 @@ if __name__ == "__main__":
     parser.add_argument("--ros-odom-hz", type=float, default=None, help="Max /odom publish rate (Hz)")
     parser.add_argument("--ros-imu-hz", type=float, default=None, help="Max /imu publish rate (Hz)")
     parser.add_argument("--ros-joint-hz", type=float, default=None, help="Max /joint_states publish rate (Hz)")
+    parser.add_argument("--d435-depth-hz", type=float, default=None, help="D435 depth render/publish rate (Hz)")
     parser.add_argument("--d435-rgb-hz", type=float, default=None, help="D435 RGB render/publish rate (Hz)")
+    parser.add_argument("--d435-depth-mode", choices=("render_fast", "raycast"), default=None, help="Override D435 depth generation backend")
+    parser.add_argument("--d435-pointcloud", action="store_true", help="Compute D435 point clouds even when sensor markers are hidden")
+    parser.add_argument("--lidar-points-per-second", type=int, default=None, help="Override simulated Livox point rate")
+    parser.add_argument("--lidar-max-points-per-frame", type=int, default=None, help="Override maximum Livox points emitted per frame")
+    parser.add_argument("--simulation-duration", type=float, default=None, help="Override config simulation_duration for short profiling/test runs")
     args = parser.parse_args()
 
     if args.show_sensors and args.headless:
         warn("--show-sensors has no effect in --headless mode.")
 
-    ros_clock_hz = args.ros_clock_hz
-    ros_tf_hz = args.ros_tf_hz
-    ros_odom_hz = args.ros_odom_hz
-    ros_imu_hz = args.ros_imu_hz
-    ros_joint_hz = args.ros_joint_hz
-    d435_rgb_hz = args.d435_rgb_hz
+    runtime_cfg = resolve_sensor_runtime_config(args)
+    enable_web_ui = runtime_cfg.enable_web_ui
 
-    if args.mapping_mode:
-        if ros_clock_hz is None:
-            ros_clock_hz = 100.0
-        if ros_tf_hz is None:
-            ros_tf_hz = 100.0
-        if ros_odom_hz is None:
-            ros_odom_hz = 100.0
-        if ros_imu_hz is None:
-            ros_imu_hz = 100.0
-        if ros_joint_hz is None:
-            ros_joint_hz = 20.0
-        if d435_rgb_hz is None:
-            d435_rgb_hz = 5.0
+    if args.show_sensors and runtime_cfg.sensor_mode == "off":
+        warn("--show-sensors has no effect when --sensor-mode off disables D435/LiDAR.")
 
-    # Keep legacy default behavior unchanged: web UI on in legacy mode.
-    enable_web_ui = (not args.mapping_mode) or bool(args.web_ui)
+    print(
+        "[sensor runtime] "
+        f"mode={runtime_cfg.sensor_mode} "
+        f"d435={'on' if runtime_cfg.enable_d435 else 'off'} "
+        f"lidar={'on' if runtime_cfg.enable_lidar else 'off'} "
+        f"d435_depth_hz={runtime_cfg.d435_depth_hz} "
+        f"d435_depth={runtime_cfg.d435_depth_mode} "
+        f"d435_rgb_hz={runtime_cfg.d435_rgb_hz} "
+        f"d435_pointcloud={runtime_cfg.d435_output_pointcloud} "
+        f"lidar_pps={runtime_cfg.lidar_points_per_second} "
+        f"lidar_max_frame={runtime_cfg.lidar_max_points_per_frame} "
+        f"web_ui={runtime_cfg.enable_web_ui}"
+    )
 
     config_file = args.config_file
     with open(f"{LEGGED_GYM_ROOT_DIR}/deploy/deploy_mujoco/configs/{config_file}", "r") as f:
@@ -1337,6 +1346,8 @@ if __name__ == "__main__":
         simulation_duration = config["simulation_duration"]
         simulation_dt = config["simulation_dt"]
         control_decimation = config["control_decimation"]
+        if args.simulation_duration is not None:
+            simulation_duration = float(args.simulation_duration)
 
         kps = np.array(config["kps"], dtype=np.float32)
         kds = np.array(config["kds"], dtype=np.float32)
@@ -1375,7 +1386,7 @@ if __name__ == "__main__":
         else:
             print("[cmd web ui] Disabled for this run")
 
-    if not hasattr(mujoco, "mj_multiRay"):
+    if runtime_cfg.enable_lidar and not hasattr(mujoco, "mj_multiRay"):
         warn("No mj_multiRay capability, this run will be much slower.")
 
     # define context variables
@@ -1390,39 +1401,47 @@ if __name__ == "__main__":
     d = mujoco.MjData(m)
     m.opt.timestep = simulation_dt
 
-    # LiDAR    
-    lidar = LivoxMid360Sim(
-        m,
-        site_name="livox_mid360",
-        frame_rate_hz=10.0,
-        points_per_second=200_000,
-        max_points_per_frame=8000,   # start smaller for speed; raise once stable
-        range_max=30.0,              # indoor-ish cap; raise if needed
-        range_noise_sigma=0.02,
-        output_frame="world",
-        stabilize_roll_pitch=True,
-    )
+    # LiDAR
+    lidar = None
+    if runtime_cfg.enable_lidar:
+        lidar = LivoxMid360Sim(
+            m,
+            site_name="livox_mid360",
+            frame_rate_hz=10.0,
+            points_per_second=runtime_cfg.lidar_points_per_second,
+            max_points_per_frame=runtime_cfg.lidar_max_points_per_frame,
+            range_max=30.0,              # indoor-ish cap; raise if needed
+            range_noise_sigma=0.02,
+            output_frame="world",
+            stabilize_roll_pitch=True,
+        )
+    else:
+        print("[sensor runtime] LiDAR disabled")
 
     # Depth Camera
-    d435 = D435iDepthSim(
-        m, d,
-        camera_name="d435i_depth_cam",
-        mount_site_name="d435i_mount",
-        height=640, width=480,
-        fps=30.0,
-        z_near=0.28,
-        z_far=3.0,
-        depth_noise_sigma_m=0.002,
-        output_pointcloud=True,
-        output_frame="site",
-        mount_roll_deg=0.0,
-        mount_pitch_deg=-47.6,
-        mount_yaw_deg=0.0,
-        raycast_stride=1,
-        depth_generation_mode="render_fast" if args.mapping_mode else "raycast",
-        rgb_fps=d435_rgb_hz,
-        profile_enabled=args.profile_runtime,
-    )
+    d435 = None
+    if runtime_cfg.enable_d435:
+        d435 = D435iDepthSim(
+            m, d,
+            camera_name="d435i_depth_cam",
+            mount_site_name="d435i_mount",
+            height=640, width=480,
+            fps=runtime_cfg.d435_depth_hz,
+            z_near=0.28,
+            z_far=3.0,
+            depth_noise_sigma_m=0.002,
+            output_pointcloud=runtime_cfg.d435_output_pointcloud,
+            output_frame="site",
+            mount_roll_deg=0.0,
+            mount_pitch_deg=-47.6,
+            mount_yaw_deg=0.0,
+            raycast_stride=1,
+            depth_generation_mode=runtime_cfg.d435_depth_mode,
+            rgb_fps=runtime_cfg.d435_rgb_hz,
+            profile_enabled=args.profile_runtime,
+        )
+    else:
+        print("[sensor runtime] D435i disabled")
 
     # ---------------------------
     # ROBUST DOF INDEXING FIX
@@ -1447,7 +1466,7 @@ if __name__ == "__main__":
     # load policy
     policy = torch.jit.load(policy_path)
 
-    last_lidar_pts_site = None  # lidar output_frame="site"
+    last_lidar_pts_site = None  # stores latest LiDAR cloud in lidar.output_frame
     last_cam_pts_world = None
     last_cam_cols = None
     lidar_profile_last_wall = time.perf_counter()
@@ -1480,23 +1499,27 @@ if __name__ == "__main__":
             cmd_vel_topic="/unitree/cmd_vel",
             cmd_lock=cmd_lock,
             cmd_shared=cmd_shared,
-            clock_hz=ros_clock_hz,
-            tf_hz=ros_tf_hz,
-            odom_hz=ros_odom_hz,
-            imu_hz=ros_imu_hz,
-            joint_hz=ros_joint_hz,
+            clock_hz=runtime_cfg.ros_clock_hz,
+            tf_hz=runtime_cfg.ros_tf_hz,
+            odom_hz=runtime_cfg.ros_odom_hz,
+            imu_hz=runtime_cfg.ros_imu_hz,
+            joint_hz=runtime_cfg.ros_joint_hz,
             profile_enabled=args.profile_runtime,
         )
-        livox_node = LivoxPublisher(m, d)
-        d435_node = D435iPublisher(m, d)
+        if lidar is not None:
+            livox_node = LivoxPublisher(m, d)
+        if d435 is not None:
+            d435_node = D435iPublisher(m, d)
         print("[ROS2] Publishing /clock, /tf, /tf_static, /joint_states, /odom, /imu")
-        print("[ROS2] Publishing /livox/points (sensor_msgs/PointCloud2)")
+        if livox_node is not None:
+            print("[ROS2] Publishing /livox/points (sensor_msgs/PointCloud2)")
         print("[ROS2] Subscribed /unitree/cmd_vel (geometry_msgs/Twist -> [vx, vy, yaw_rate])")
-        print("[ROS2] Publishing D435i topics:")
-        print("  /intel/D435i/color (sensor_msgs/Image rgb8)")
-        print("  /intel/D435i/depth (sensor_msgs/Image 16UC1, mm)")
-        print("  /intel/D435i/aligned_depth_to_color (sensor_msgs/Image 16UC1, mm)")
-        print("  + camera_info and TF frames from MJCF names")
+        if d435_node is not None:
+            print("[ROS2] Publishing D435i topics:")
+            print("  /intel/D435i/color (sensor_msgs/Image rgb8)")
+            print("  /intel/D435i/depth (sensor_msgs/Image 16UC1, mm)")
+            print("  /intel/D435i/aligned_depth_to_color (sensor_msgs/Image 16UC1, mm)")
+            print("  + camera_info and TF frames from MJCF names")
     else:
         ros_bridge = None
         print("[ROS2] rclpy not available; ROS publishing")
@@ -1578,9 +1601,9 @@ if __name__ == "__main__":
 
         sim_time = 0.0
         start = time.time()
+        pace_start_wall = time.perf_counter()
         while (viewer is None or viewer.is_running()) and time.time() - start < simulation_duration:
             loop_wall_t0 = time.perf_counter()
-            step_start = time.time()
 
             if ros_bridge is not None:
                 t0 = time.perf_counter()
@@ -1672,33 +1695,37 @@ if __name__ == "__main__":
                 livox_node.publish_tf(livox_stamp)
                 runtime_profile["lidar_ros_s"] += time.perf_counter() - t0
 
-            t0 = time.perf_counter()
-            cloud = lidar.step(d, dt=m.opt.timestep)
-            runtime_profile["lidar_s"] += time.perf_counter() - t0
-            if cloud is not None:
-                last_lidar_pts_site = cloud  # (N,3) in site frame
-                if livox_node is not None:
-                    t1 = time.perf_counter()
-                    stamp = livox_stamp if livox_stamp is not None else livox_node.get_clock().now().to_msg()
+            if lidar is not None:
+                t0 = time.perf_counter()
+                cloud = lidar.step(d, dt=m.opt.timestep)
+                runtime_profile["lidar_s"] += time.perf_counter() - t0
+                if cloud is not None:
+                    last_lidar_pts_site = cloud  # output frame follows lidar.output_frame
+                    if livox_node is not None:
+                        t1 = time.perf_counter()
+                        stamp = livox_stamp if livox_stamp is not None else livox_node.get_clock().now().to_msg()
 
-                    frame_id = "world" if getattr(lidar, "output_frame", "site") == "world" else "livox_mid360"
-                    pack_t0 = time.perf_counter()
-                    msg = pointcloud2_from_xyz(
-                        cloud,
-                        frame_id=frame_id,
-                        stamp_msg=stamp,
-                        intensity=None,
-                    )
-                    lidar.record_pack_time(time.perf_counter() - pack_t0)
-                    livox_node.pub.publish(msg)
-                    runtime_profile["lidar_ros_s"] += time.perf_counter() - t1
+                        frame_id = "world" if getattr(lidar, "output_frame", "site") == "world" else "livox_mid360"
+                        pack_t0 = time.perf_counter()
+                        msg = pointcloud2_from_xyz(
+                            cloud,
+                            frame_id=frame_id,
+                            stamp_msg=stamp,
+                            intensity=None,
+                        )
+                        lidar.record_pack_time(time.perf_counter() - pack_t0)
+                        livox_node.pub.publish(msg)
+                        runtime_profile["lidar_ros_s"] += time.perf_counter() - t1
 
-            t0 = time.perf_counter()
-            frame = d435.step(dt=m.opt.timestep)
-            runtime_profile["camera_step_s"] += time.perf_counter() - t0
-            if frame is not None and frame.get("pointcloud_world") is not None:
-                last_cam_pts_world = frame["pointcloud_world"]
-                last_cam_cols = frame.get("point_colors_rgb", None)
+            frame = None
+            if d435 is not None:
+                t0 = time.perf_counter()
+                frame = d435.step(dt=m.opt.timestep)
+                runtime_profile["camera_step_s"] += time.perf_counter() - t0
+            if frame is not None:
+                if frame.get("pointcloud_world") is not None:
+                    last_cam_pts_world = frame["pointcloud_world"]
+                    last_cam_cols = frame.get("point_colors_rgb", None)
                 if enable_web_ui and frame.get("rgb_u8") is not None and frame.get("rgb_fresh", True):
                     t1 = time.perf_counter()
                     try:
@@ -1719,8 +1746,8 @@ if __name__ == "__main__":
                 t0 = time.perf_counter()
                 draw_multiple_world_point_sets(
                     viewer, m, d,
-                    lidar_site_id=lidar.site_id,
-                    lidar_points_site=last_lidar_pts_site if (last_lidar_pts_site is not None and getattr(lidar, "output_frame", "site") == "site") else None,
+                    lidar_site_id=lidar.site_id if lidar is not None else None,
+                    lidar_points_site=last_lidar_pts_site if (lidar is not None and last_lidar_pts_site is not None and getattr(lidar, "output_frame", "site") == "site") else None,
                     lidar_radius=0.005,
                     lidar_max=1000,
                     cam_points_world=last_cam_pts_world if last_cam_pts_world is not None else None,
@@ -1731,7 +1758,7 @@ if __name__ == "__main__":
                 )
                 runtime_profile["draw_s"] += time.perf_counter() - t0
 
-            if args.profile_lidar:
+            if args.profile_lidar and lidar is not None:
                 now_wall = time.perf_counter()
                 if now_wall - lidar_profile_last_wall >= 1.0:
                     stats = lidar.get_stats(reset=True)
@@ -1750,7 +1777,7 @@ if __name__ == "__main__":
                     )
                     lidar_profile_last_wall = now_wall
 
-            time_until_next_step = m.opt.timestep - (time.time() - step_start)
+            time_until_next_step = pace_start_wall + sim_time - time.perf_counter()
             if time_until_next_step > 0:
                 sleep_t0 = time.perf_counter()
                 time.sleep(time_until_next_step)
