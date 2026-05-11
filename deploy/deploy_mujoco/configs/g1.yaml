@@ -24,3 +24,8 @@ num_actions: 12
 num_obs: 47
 
 cmd_init: [0.5, 0, 0]
+
+safety_limp_enabled: true
+safety_limp_body_name: pelvis
+safety_limp_tilt_limit_deg: 60.0
+safety_limp_damping_kd: 8.0

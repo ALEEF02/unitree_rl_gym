@@ -1257,6 +1257,90 @@ def pd_control(target_q, q, kp, target_dq, dq, kd):
     return (target_q - q) * kp + (target_dq - dq) * kd
 
 
+def body_tilt_from_upright_deg(body_xmat):
+    R = np.asarray(body_xmat, dtype=np.float64).reshape(3, 3)
+    body_z_dot_world_z = float(np.clip(R[2, 2], -1.0, 1.0))
+    return math.degrees(math.acos(body_z_dot_world_z))
+
+
+def safety_limp_damping_torque(dq, damping_kd):
+    return -float(damping_kd) * np.asarray(dq)
+
+
+class SafetyLimpLatch:
+    def __init__(self, *, enabled, body_name, tilt_limit_deg, damping_kd, body_id):
+        self.enabled = bool(enabled)
+        self.body_name = str(body_name)
+        self.tilt_limit_deg = float(tilt_limit_deg)
+        self.damping_kd = float(damping_kd)
+        self.body_id = int(body_id)
+        self.latched = False
+        self.trip_tilt_deg = None
+
+    @classmethod
+    def from_model(cls, model, *, enabled, body_name, tilt_limit_deg, damping_kd):
+        body_id = -1
+        if enabled:
+            body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, str(body_name))
+            if body_id < 0:
+                raise ValueError(f"Safety limp body '{body_name}' not found in MJCF")
+        return cls(
+            enabled=enabled,
+            body_name=body_name,
+            tilt_limit_deg=tilt_limit_deg,
+            damping_kd=damping_kd,
+            body_id=body_id,
+        )
+
+    def current_tilt_deg(self, data):
+        if not self.enabled:
+            return 0.0
+        return body_tilt_from_upright_deg(data.xmat[self.body_id])
+
+    def update(self, data, *, cmd_shared=None, cmd_lock=None):
+        if not self.enabled:
+            return False
+        if self.latched:
+            return True
+
+        tilt_deg = self.current_tilt_deg(data)
+        if tilt_deg <= self.tilt_limit_deg:
+            return False
+
+        self.latched = True
+        self.trip_tilt_deg = tilt_deg
+        self._zero_cmd(cmd_shared, cmd_lock)
+        print(
+            "[Safety limp] LATCHED: "
+            f"body={self.body_name} tilt={tilt_deg:.1f}deg "
+            f"limit={self.tilt_limit_deg:.1f}deg; damping mode until simulator restart"
+        )
+        return True
+
+    def control_torque(self, normal_tau, dq):
+        if not self.latched:
+            return normal_tau
+        return safety_limp_damping_torque(dq, self.damping_kd)
+
+    @staticmethod
+    def _zero_cmd(cmd_shared, cmd_lock):
+        if cmd_shared is None:
+            return
+
+        def zero():
+            if hasattr(cmd_shared, "fill"):
+                cmd_shared.fill(0.0)
+            else:
+                for i in range(len(cmd_shared)):
+                    cmd_shared[i] = 0.0
+
+        if cmd_lock is None:
+            zero()
+            return
+        with cmd_lock:
+            zero()
+
+
 if __name__ == "__main__":
     # get config file name from command line
     import argparse
@@ -1363,6 +1447,11 @@ if __name__ == "__main__":
         num_actions = config["num_actions"]
         num_obs = config["num_obs"]
 
+        safety_limp_enabled = bool(config.get("safety_limp_enabled", True))
+        safety_limp_body_name = str(config.get("safety_limp_body_name", "pelvis"))
+        safety_limp_tilt_limit_deg = float(config.get("safety_limp_tilt_limit_deg", 60.0))
+        safety_limp_damping_kd = float(config.get("safety_limp_damping_kd", 8.0))
+
         cmd_lock = threading.Lock()
         cmd_init = config["cmd_init"]
         cmd_shared = cmd_init.copy()
@@ -1400,6 +1489,22 @@ if __name__ == "__main__":
     m = mujoco.MjModel.from_xml_path(xml_path)
     d = mujoco.MjData(m)
     m.opt.timestep = simulation_dt
+    safety_limp_latch = SafetyLimpLatch.from_model(
+        m,
+        enabled=safety_limp_enabled,
+        body_name=safety_limp_body_name,
+        tilt_limit_deg=safety_limp_tilt_limit_deg,
+        damping_kd=safety_limp_damping_kd,
+    )
+    if safety_limp_latch.enabled:
+        print(
+            "[Safety limp] Armed: "
+            f"body={safety_limp_latch.body_name} "
+            f"tilt_limit={safety_limp_latch.tilt_limit_deg:.1f}deg "
+            f"damping_kd={safety_limp_latch.damping_kd:.1f}"
+        )
+    else:
+        print("[Safety limp] Disabled")
 
     # LiDAR
     lidar = None
@@ -1615,7 +1720,8 @@ if __name__ == "__main__":
             t0 = time.perf_counter()
             qj_raw = d.qpos[qpos_adr]
             dqj_raw = d.qvel[qvel_adr]
-            tau = pd_control(
+            safety_limp_latch.update(d, cmd_shared=cmd_shared, cmd_lock=cmd_lock)
+            normal_tau = pd_control(
                 target_dof_pos,
                 qj_raw,
                 kps,
@@ -1623,6 +1729,7 @@ if __name__ == "__main__":
                 dqj_raw,
                 kds,
             )
+            tau = safety_limp_latch.control_torque(normal_tau, dqj_raw)
             d.ctrl[:] = tau
             runtime_profile["control_s"] += time.perf_counter() - t0
 
@@ -1632,7 +1739,7 @@ if __name__ == "__main__":
             sim_time += m.opt.timestep
 
             counter += 1
-            if counter % control_decimation == 0:
+            if counter % control_decimation == 0 and not safety_limp_latch.latched:
                 # Apply control signal here.
                 qj = d.qpos[qpos_adr].copy()
                 dqj = d.qvel[qvel_adr].copy()
