@@ -62,8 +62,8 @@ def resolve_sensor_runtime_config(args) -> SensorRuntimeConfig:
         default_d435_rgb_hz = 2.0
         default_d435_pointcloud = show_sensors or explicit_d435_pointcloud
         default_web_ui = False
-        default_lidar_points_per_second = 75_000
-        default_lidar_max_points_per_frame = 3000
+        default_lidar_points_per_second = 200_000
+        default_lidar_max_points_per_frame = 8000
 
     d435_depth_mode = _override(getattr(args, "d435_depth_mode", None), default_d435_depth_mode)
     if d435_depth_mode not in ("render_fast", "raycast"):

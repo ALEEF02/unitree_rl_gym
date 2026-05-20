@@ -49,6 +49,46 @@ def sim_time_to_sec_nsec(sim_time: float) -> tuple[int, int]:
     return sec, nsec
 
 
+def apply_initial_base_pose(
+    m: mujoco.MjModel,
+    d: mujoco.MjData,
+    *,
+    joint_name: str | None = None,
+    base_pos: list[float] | tuple[float, ...] | np.ndarray | None = None,
+    base_yaw: float | None = None,
+) -> bool:
+    if base_pos is None and base_yaw is None:
+        return False
+
+    resolved_joint_name = str(joint_name or "floating_base_joint")
+    joint_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_JOINT, resolved_joint_name)
+    if joint_id < 0:
+        warn(f"Initial base pose requested, but joint {resolved_joint_name!r} was not found.")
+        return False
+
+    if int(m.jnt_type[joint_id]) != int(mujoco.mjtJoint.mjJNT_FREE):
+        warn(f"Initial base pose requested, but joint {resolved_joint_name!r} is not a free joint.")
+        return False
+
+    qpos_address = int(m.jnt_qposadr[joint_id])
+    if base_pos is not None:
+        position = np.asarray(base_pos, dtype=np.float64).reshape(-1)
+        if position.shape[0] != 3:
+            warn(f"Initial base position must have 3 values, got {position.shape[0]}.")
+            return False
+        d.qpos[qpos_address : qpos_address + 3] = position
+
+    if base_yaw is not None:
+        half_yaw = float(base_yaw) * 0.5
+        d.qpos[qpos_address + 3 : qpos_address + 7] = np.asarray(
+            [math.cos(half_yaw), 0.0, 0.0, math.sin(half_yaw)],
+            dtype=np.float64,
+        )
+
+    mujoco.mj_forward(m, d)
+    return True
+
+
 class MujocoROS2Bridge(Node):
     """
     Publishes:
@@ -1451,6 +1491,9 @@ if __name__ == "__main__":
         safety_limp_body_name = str(config.get("safety_limp_body_name", "pelvis"))
         safety_limp_tilt_limit_deg = float(config.get("safety_limp_tilt_limit_deg", 60.0))
         safety_limp_damping_kd = float(config.get("safety_limp_damping_kd", 8.0))
+        initial_base_joint = config.get("initial_base_joint")
+        initial_base_pos = config.get("initial_base_pos")
+        initial_base_yaw = config.get("initial_base_yaw")
 
         cmd_lock = threading.Lock()
         cmd_init = config["cmd_init"]
@@ -1489,6 +1532,19 @@ if __name__ == "__main__":
     m = mujoco.MjModel.from_xml_path(xml_path)
     d = mujoco.MjData(m)
     m.opt.timestep = simulation_dt
+    if apply_initial_base_pose(
+        m,
+        d,
+        joint_name=initial_base_joint,
+        base_pos=initial_base_pos,
+        base_yaw=initial_base_yaw,
+    ):
+        print(
+            "[initial base pose] Applied "
+            f"joint={initial_base_joint or 'floating_base_joint'} "
+            f"pos={initial_base_pos if initial_base_pos is not None else 'default'} "
+            f"yaw={initial_base_yaw if initial_base_yaw is not None else 'default'}"
+        )
     safety_limp_latch = SafetyLimpLatch.from_model(
         m,
         enabled=safety_limp_enabled,

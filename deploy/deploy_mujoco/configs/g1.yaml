@@ -1,6 +1,6 @@
 # 
 policy_path: "{LEGGED_GYM_ROOT_DIR}/deploy/pre_train/g1/motion.pt"
-xml_path: "{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene-simple-textured.xml"
+xml_path: "{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene-simple-rooms.xml"
 
 # Total simulation time
 simulation_duration: 60000.0
@@ -24,6 +24,10 @@ num_actions: 12
 num_obs: 47
 
 cmd_init: [0.5, 0, 0]
+
+initial_base_joint: "floating_base_joint"
+initial_base_pos: [0, 0, 0.793]
+initial_base_yaw: 0.0
 
 safety_limp_enabled: true
 safety_limp_body_name: pelvis
