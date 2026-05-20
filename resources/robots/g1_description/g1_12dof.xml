@@ -23,7 +23,7 @@
     <mesh name="right_ankle_roll_link" file="right_ankle_roll_link.STL"/>
     <mesh name="torso_link_23dof_rev_1_0" file="torso_link_23dof_rev_1_0.STL"/>
     <mesh name="logo_link" file="logo_link.STL"/>
-    <mesh name="head_link" file="head_link.STL"/>
+    <mesh name="head_link" file="head_link_no_lidar.STL"/>
     <mesh name="left_shoulder_pitch_link" file="left_shoulder_pitch_link.STL"/>
     <mesh name="left_shoulder_roll_link" file="left_shoulder_roll_link.STL"/>
     <mesh name="left_shoulder_yaw_link" file="left_shoulder_yaw_link.STL"/>
@@ -51,7 +51,7 @@
       <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="head_link"/>
 
       <body name="lidar_frame" pos="0 0 0">
-        <site name="livox_mid360" pos="-0.004 0 0.43" size="0.01" rgba="1 0 0 1"/>
+        <site name="livox_mid360" pos="-0.004 0 0.45" size="0.01" rgba="1 0 0 1"/>
       </body>
 
       <body name="depth_camera_frame" pos="0.06 0 0.47">

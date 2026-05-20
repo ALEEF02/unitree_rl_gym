@@ -509,7 +509,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="file:///home/nartech/unitree_rl_gym/resources/robots/g1_description/meshes/head_link.STL"/>
+        <mesh filename="file:///home/nartech/unitree_rl_gym/resources/robots/g1_description/meshes/head_link_no_lidar.STL"/>
       </geometry>
       <material name="dark">
         <color rgba="0.2 0.2 0.2 1"/>
@@ -518,7 +518,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="file:///home/nartech/unitree_rl_gym/resources/robots/g1_description/meshes/head_link.STL"/>
+        <mesh filename="file:///home/nartech/unitree_rl_gym/resources/robots/g1_description/meshes/head_link_no_lidar.STL"/>
       </geometry>
     </collision>
   </link>
