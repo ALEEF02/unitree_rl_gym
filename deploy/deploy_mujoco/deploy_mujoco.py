@@ -1594,7 +1594,7 @@ if __name__ == "__main__":
             output_pointcloud=runtime_cfg.d435_output_pointcloud,
             output_frame="site",
             mount_roll_deg=0.0,
-            mount_pitch_deg=-47.6,
+            mount_pitch_deg=-25, # real: -47.6
             mount_yaw_deg=0.0,
             raycast_stride=1,
             depth_generation_mode=runtime_cfg.d435_depth_mode,
